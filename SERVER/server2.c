@@ -38,11 +38,13 @@ void InitGame(Game *game, int gameId, int socket_joueur1, int socket_joueur2)
 
 void sendMenu(Client c)
 {
-   write_client(c.sock, "1.  Afficher la liste des pseudos en ligne");
+   write_client(c.sock, "1.  Afficher la liste des pseudos en ligne\n");
+   write_client(c.sock, "2.  Choisir un adversaire\n");
 }
 
 bool sendAvailablePlayers(Client c)
 {
+   char buffer[BUF_SIZE];
    bool foundPlayers = false;
    for (int i = 0; i < actual; i++)
    {
@@ -50,65 +52,139 @@ bool sendAvailablePlayers(Client c)
       {
          if (!foundPlayers)
          {
-            write_client(c.sock, "Les joueurs disponibles : ");
+            strncpy(buffer, "Les joueurs disponibles : ", BUF_SIZE - 1);
+         }
+         else
+         {
+            strncat(buffer, ", ", BUF_SIZE - strlen(buffer) - 1);
          }
          foundPlayers = true;
-         write_client(c.sock, clients[i].name);
+
+         strncat(buffer, clients[i].name, BUF_SIZE - strlen(buffer) - 1);
       }
    }
    if (!foundPlayers)
    {
-      write_client(c.sock, "Aucun joueur disponible en ce moment");
+      strncpy(buffer, "Aucun joueur disponible en ce moment", BUF_SIZE - 1);
    }
+   write_client(c.sock, buffer);
    return foundPlayers;
 }
 
-void choixAdversaire(Client c)
+void choixAdversaire(Client c, char *adversaire)
 {
+   if (!strcmp(c.name, adversaire))
+   {
+      return;
+   }
    char buffer[BUF_SIZE];
-   int octets = read_client(c.sock, buffer);
    bool foundPlayer = false;
    for (int i = 0; i < actual; i++)
    {
-      if (strcmp(clients[i].name, buffer) && !clients[i].isPlaying && clients[i].sock)
+      if (!strcmp(clients[i].name, adversaire) && !clients[i].isPlaying && clients[i].sock)
       {
          foundPlayer = true;
          write_client(c.sock, "Notification envoyée à l'adversaire ");
-         write_client(clients[i].sock, "Voulez vous jouer avec");
-         write_client(clients[i].sock, c.name);
+
+         strncpy(buffer, "Voulez vous jouer avec ", BUF_SIZE - 1);
+         strncat(buffer, c.name, BUF_SIZE - strlen(buffer) - 1);
+         strncat(buffer, " ?(Y/N) : ", BUF_SIZE - strlen(buffer) - 1);
+         write_client(clients[i].sock, buffer);
          break;
       }
    }
    if (!foundPlayer)
    {
-      write_client(c.sock, "Le joueur saisi n'existe pas");
+      write_client(c.sock, "Le joueur saisi n'existe pas ou est en train de jouer");
    }
 }
 
-void GererClient(Client c)
+bool validerPseudo(char *pseudo)
 {
-   char buffer[BUF_SIZE];
-   if (!c.isPlaying && c.sock)
+   if (pseudo[0] >= '0' && pseudo[0] <= '9')
    {
-      bool foundPlayer = false;
-      sendMenu(c);
-      while (!foundPlayer)
+      return false;
+   }
+   for (int i = 0; i < actual; i++)
+   {
+      if (strcmp(clients[i].name, pseudo) == 0)
       {
-         int octets = read_client(c.sock, buffer);
-         int x;
-         if (octets > 0 && (x = strcmp(buffer, "1\n")))
-         {
-            foundPlayer = sendAvailablePlayers(c);
-            if (foundPlayer)
-            {
-               choixAdversaire(c);
-               break;
-            }else{
-               sendMenu(c);
-            }
-         }
+         return false;
       }
-      
+   }
+   return true;
+}
+
+void closeBuffer(char **buffer, int bufferSize)
+{
+   char *p = NULL;
+   p = strstr(*buffer, "\n");
+   if (p != NULL)
+   {
+      *p = 0;
+   }
+   else
+   {
+      /* fclean */
+      (*buffer)[bufferSize - 1] = 0;
+   }
+}
+
+void buffLectureToBuff(char (*buffer)[BUF_SIZE], char *buffLecture, char messageCode)
+{
+   (*buffer)[0] = messageCode;
+   for (int i = 0; i < BUF_SIZE - 2; i++)
+   {
+      (*buffer)[i + 1] = buffLecture[i];
+   }
+   char *p = NULL;
+   p = strstr(*buffer, "\n");
+   if (p != NULL)
+   {
+      *p = 0;
+   }
+   else
+   {
+      /* fclean */
+      (*buffer)[BUF_SIZE - 1] = 0;
+   }
+}
+
+void gererMessageClient(Client *c, char *message)
+{
+   printf("%s a parlé\n", c->name);
+
+   // On récupère le premier caractère du message pour déterminer l'action à effectuer
+   char action = message[0];
+   char contenu[BUF_SIZE - 2];
+   strncpy(contenu, message + 1, BUF_SIZE - 2);
+   bool res;
+   char buffer[BUF_SIZE];
+   switch (action)
+   {
+   case '0':
+      res = validerPseudo(contenu);
+      printf("res = %d\n", res);
+      if (res)
+      {
+         contenu[BUF_SIZE - 2] = '\0';
+         strncpy(c->name, contenu, BUF_SIZE - 2);
+         write_client(c->sock, "01");
+      }
+      else
+      {
+         write_client(c->sock, "00");
+      }
+      break;
+   case '1':
+      sendAvailablePlayers(*c);
+      break;
+   case '2':
+      choixAdversaire(*c, contenu);
+      break;
+   default:
+      sendMenu(*c);
+      break;
    }
 }
 
@@ -168,24 +244,6 @@ static void app(void)
          FD_SET(csock, &rdfs);
 
          Client c = {csock};
-         int i = -1;
-         while (i != actual)
-         {
-            if (read_client(csock, buffer) == -1)
-            {
-               /* disconnected */
-               continue;
-            }
-            for (i = 0; i < actual; i++)
-            {
-               if (strcmp(clients[i].name, buffer) == 0)
-               {
-                  write_client(c.sock, "Le pseudo choisi est déjà pris. Saisissez votre pseudo : ");
-                  break;
-               }
-            }
-         }
-         strncpy(c.name, buffer, BUF_SIZE - 1);
          c.isPlaying = false;
          c.score = 0;
          c.gameId = 0;
@@ -213,7 +271,8 @@ static void app(void)
                }
                else
                {
-                  GererClient(clients[i]);
+                  printf("buffer = %s\n", buffer);
+                  gererMessageClient(&clients[i], buffer);
                }
                break;
             }
