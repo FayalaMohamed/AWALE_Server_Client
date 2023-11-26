@@ -53,6 +53,7 @@ Client clients[MAX_CLIENTS];
 char message[BUF_SIZE];
 /* the index for the clients array */
 int actual = 0;
+int nb_games  = 0;
 
 static void init(void);
 static void end(void);

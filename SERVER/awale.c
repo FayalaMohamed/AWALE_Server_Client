@@ -283,9 +283,8 @@ void jouerCoup(int case_jeu, int joueur, int *score_joueur, int sens_rotation, i
     // free(tmpPlateau);
 }
 
-/* int main()
+/*int main()
 {
-
     int *plateau;
     int score_joueur1, score_joueur2, sens_rotation;
 
