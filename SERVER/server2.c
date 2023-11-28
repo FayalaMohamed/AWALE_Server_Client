@@ -27,38 +27,88 @@ static void end(void)
 #endif
 }
 
-/*void PlayGame(Game *game, int gameId)
+void PlayGame(Client *joueur, uint8_t case_jeu, char *buffer)
 {
-   int beginPlayer = 1 + rand() % (2)
-}*/
+   for (int i = 0; i < nb_games; i++)
+   {
+      if (joueur->gameId == games[i].gameId)
+      {
+         int num_joueur;
+         uint8_t *scoreJoueur;
+         uint8_t res;
+         if (joueur == games[i].joueur1)
+         {
+            num_joueur = 1;
+            scoreJoueur = &games[i].score_joueur1;
+            res = testFinPartie(games[i].plateau, num_joueur, 1, *scoreJoueur, games[i].score_joueur2);
+         }
+         else
+         {
+            num_joueur = 2;
+            scoreJoueur = &games[i].score_joueur2;
+            res = testFinPartie(games[i].plateau, num_joueur, 1, games[i].score_joueur1, *scoreJoueur);
+         }
+         if (res== 1)
+         {
+            write_client(games[i].joueur1->sock, "Tu as gagné!");
+            write_client(games[i].joueur2->sock, "Tu as perdu!");
+            games[i].joueur1->isPlaying = false;
+            games[i].joueur2->isPlaying = false;
+            games[i].joueur1->gamesWon += 1;
+            return;
+         }
+         else if(res==2){
+            write_client(games[i].joueur1->sock, "Tu as perdu!");
+            write_client(games[i].joueur2->sock, "Tu as gagné!");
+            games[i].joueur1->isPlaying = false;
+            games[i].joueur2->isPlaying = false;
+            games[i].joueur2->gamesWon += 1;
+            return;
+         }
+         if (num_joueur != games[i].next_joueur)
+         {
+            write_client(joueur->sock, "C'est pas ton tour\n");
+            return;
+         }
+         jouerCoup(case_jeu, num_joueur, scoreJoueur, 1, &games[i].plateau);
+         games[i].next_joueur = games[i].next_joueur % 2 + 1;
+         createPlateauMessage(buffer, &games[i], games[i].joueur1);
+         write_client(games[i].joueur1->sock, buffer);
+         createPlateauMessage(buffer, &games[i], games[i].joueur2);
+         write_client(games[i].joueur2->sock, buffer);
+         break;
+      }
+   }
+}
 
-void InitGame(Game *game, int gameId, int socket_joueur1, int socket_joueur2)
+void InitGame(Game *game, int gameId, Client *joueur1, Client *joueur2)
 {
    game->gameId = gameId;
-   game->socket_joueur1 = socket_joueur1;
-   game->socket_joueur2 = socket_joueur2;
-   game->nb_tours = 0;
+   game->joueur1 = joueur1;
+   game->joueur2 = joueur2;
+   game->next_joueur = 1 + rand() % (2);
+   game->plateau = (uint8_t *)malloc(NB_CASES * sizeof(uint8_t));
    initPartie(&game->plateau, &game->score_joueur1, &game->score_joueur2, &game->sens_rotation);
-
-   char *buffer;
-   buffer = (char *)malloc(BUF_SIZE*sizeof(char));
-   buffer[0] = 0;
-   createPlateauMessage(buffer, game);
-   printf("buffer = %s\n", buffer);
-   write_client(game->socket_joueur1, buffer);
-   free(buffer);
    // PlayGame(&game, gameId);
 }
 
-void sendMenu(Client c)
+void sendMenu(Client c, char *buffer)
 {
-   write_client(c.sock, "1.  Afficher la liste des pseudos en ligne\n");
-   write_client(c.sock, "2.  Choisir un adversaire \n");
+   if (!c.isPlaying)
+   {
+      strncpy(buffer, "1.  Afficher la liste des pseudos en ligne\n", BUF_SIZE - 1);
+      strncat(buffer, "2.  Choisir un adversaire \n", BUF_SIZE - strlen(buffer) - 1);
+   }else{
+      strncpy(buffer, "4.  Choisir la case à jouer\n", BUF_SIZE - 1);
+   }
 }
 
-bool sendAvailablePlayers(Client c)
+bool sendAvailablePlayers(Client c, char *buffer)
 {
-   char buffer[BUF_SIZE];
+   if (c.isPlaying)
+   {
+      return false;
+   }
    bool foundPlayers = false;
    for (int i = 0; i < actual; i++)
    {
@@ -83,16 +133,19 @@ bool sendAvailablePlayers(Client c)
    }
    else
    {
-      strncat(buffer, "\nPour choisir un adversaire envoye 2", BUF_SIZE - (2 * strlen(buffer)) - 1);
+      strncat(buffer, "\nPour choisir un adversaire envoyez 2", BUF_SIZE - (2 * strlen(buffer)) - 1);
    }
-   write_client(c.sock, buffer);
    return foundPlayers;
 }
 
 void confirmAdversaire(Client *c, char *reponse)
 {
+   if (c->isPlaying)
+   {
+      return;
+   }
    bool adversaireTrouve = false;
-   Client *adv;
+   Client *adv = NULL;
    for (int i = 0; i < actual; i++)
    {
       if (!strcmp(clients[i].name, c->pseudoAdversaire) && !clients[i].isPlaying && clients[i].sock)
@@ -106,6 +159,7 @@ void confirmAdversaire(Client *c, char *reponse)
       return;
    }
    char buffer[BUF_SIZE];
+   buffer[0] = 0;
    char answer = reponse[0];
    switch (answer)
    {
@@ -123,11 +177,19 @@ void confirmAdversaire(Client *c, char *reponse)
 
       c->isPlaying = true;
       adv->isPlaying = true;
-      InitGame(&games[nb_games], nb_games, c->sock, adv->sock);
+      InitGame(&games[nb_games], nb_games, c, adv);
+
+      char *buff;
+      buff = (char *)malloc(BUF_SIZE * sizeof(char));
+      buff[0] = 0;
+      createPlateauMessage(buff, &games[nb_games], games[nb_games].joueur1);
+      write_client(games[nb_games].joueur1->sock, buff);
+      createPlateauMessage(buff, &games[nb_games], games[nb_games].joueur2);
+      write_client(games[nb_games].joueur2->sock, buff);
+      free(buff);
       nb_games++;
       break;
-   case 'n':
-   case 'N':
+   default:
       strncpy(buffer, "Tu as réfusé la demande de ", BUF_SIZE - 1);
       strncat(buffer, adv->name, BUF_SIZE - strlen(buffer) - 1);
       write_client(c->sock, buffer);
@@ -142,12 +204,17 @@ void confirmAdversaire(Client *c, char *reponse)
 
 Client *choixAdversaire(Client *c, char *adversaire)
 {
+   if (c->isPlaying)
+   {
+      return NULL;
+   }
    if (!strcmp(c->name, adversaire))
    {
       write_client(c->sock, "Tu ne peux pas jouer toute seul");
       return NULL;
    }
    char buffer[BUF_SIZE];
+   buffer[0] = 0;
    bool foundPlayer = false;
    for (int i = 0; i < actual; i++)
    {
@@ -157,7 +224,7 @@ Client *choixAdversaire(Client *c, char *adversaire)
          clients[i].pseudoAdversaire = c->name;
          foundPlayer = true;
          write_client(c->sock, "Notification envoyée à l'adversaire ");
-         char buffer[BUF_SIZE];
+
          strncpy(buffer, "3", BUF_SIZE - 1);
          strncat(buffer, "Voulez vous jouer avec ", BUF_SIZE - strlen(buffer) - 1);
          strncat(buffer, c->name, BUF_SIZE - strlen(buffer) - 1);
@@ -233,7 +300,8 @@ void gererMessageClient(Client *c, char *message)
    char contenu[BUF_SIZE - 2];
    strncpy(contenu, message + 1, BUF_SIZE - 2);
    bool res;
-   char buffer[BUF_SIZE];
+   char *buffer = (char *)malloc(BUF_SIZE * sizeof(char));
+   buffer[0] = 0;
    switch (action)
    {
    case '0':
@@ -251,7 +319,8 @@ void gererMessageClient(Client *c, char *message)
       }
       break;
    case '1':
-      sendAvailablePlayers(*c);
+      sendAvailablePlayers(*c, buffer);
+      write_client(c->sock, buffer);
       break;
    case '2':
       choixAdversaire(c, contenu);
@@ -259,10 +328,16 @@ void gererMessageClient(Client *c, char *message)
    case '3':
       confirmAdversaire(c, contenu);
       break;
+   case '4':
+      printf("%d\n", (uint8_t)(contenu[0] - '0'));
+      PlayGame(c, (uint8_t)(contenu[0] - '0'), buffer);
+      break;
    default:
-      sendMenu(*c);
+      sendMenu(*c, buffer);
+      write_client(c->sock, buffer);
       break;
    }
+   free(buffer);
 }
 
 static void app(void)
@@ -270,6 +345,7 @@ static void app(void)
    // InitGame(&games[0], 0, 1, 2);
    SOCKET sock = init_connection();
    char buffer[BUF_SIZE];
+   buffer[0] = 0;
    int max = sock;
 
    fd_set rdfs;
@@ -322,7 +398,7 @@ static void app(void)
 
          Client c = {csock};
          c.isPlaying = false;
-         c.score = 0;
+         c.gamesWon = 0;
          c.gameId = 0;
          clients[actual] = c;
          actual++;
@@ -361,26 +437,41 @@ static void app(void)
    end_connection(sock);
 }
 
-static void createPlateauMessage(char *buffer, Game* game)
+static void createPlateauMessage(char *buffer, Game *game, Client *joueur)
 {
-   buffer[0] = '4';
-   buffer[1] = (char)(game->gameId + '0');
-   // plateau
-   for (int i = 0; i < 12; i++)
-   {
-      buffer[i + 1] = (char)(game->plateau[i] + '0');
-      printf("Case plateau : %hhu\n", game->plateau[i]);
-   }
-   printf("gameId : %hhu\n", game->gameId);
-   printf("score_joueur1 : %hhu\n", game->score_joueur1);
-   printf("score_joueur2 : %hhu\n", game->score_joueur2);
-   printf("nb_tours : %hhu\n", game->nb_tours);
+   int idx_row1, idx_row2, num_joueur;
+   (joueur == game->joueur1) ? (num_joueur = 1) : (num_joueur = 2);
+   char *string = (char *)malloc(5 * sizeof(char));
+   // indices des cases par lesquelles commencent les lignes à afficher
+   idx_row1 = NB_CASES / 2 * (2 - num_joueur);
+   idx_row2 = NB_CASES / 2 * num_joueur - 1;
 
-   // scores
-   buffer[13] = (char)(game->score_joueur1 + '0');
-   buffer[14] = (char)(game->score_joueur2 + '0');
-   buffer[15] = (char)(game->nb_tours + '0');
-   buffer[16] = 0;
+   // affichage ligne par ligne
+   strncpy(buffer, "Point de vue du joueur ", BUF_SIZE - 1);
+   strncat(buffer, joueur->name, BUF_SIZE - strlen(buffer) - 1);
+   strncat(buffer, "\n", BUF_SIZE - strlen(buffer) - 1);
+   strncat(buffer, "Plateau de jeu :\n\n", BUF_SIZE - strlen(buffer) - 1);
+
+   for (int i = idx_row1; i < idx_row1 + 6; ++i)
+   {
+      strncat(buffer, " | ", BUF_SIZE - strlen(buffer) - 1);
+      sprintf(string, "%d", game->plateau[i]);
+      strncat(buffer, string, BUF_SIZE - strlen(buffer) - 1);
+   }
+   strncat(buffer, " |\n", BUF_SIZE - strlen(buffer) - 1);
+   for (int i = 0; i < NB_CASES / 2; ++i)
+   {
+      strncat(buffer, "-----", BUF_SIZE - strlen(buffer) - 1);
+   }
+   strncat(buffer, "\n", BUF_SIZE - strlen(buffer) - 1);
+   for (int i = idx_row2; i > idx_row2 - 6; --i)
+   {
+      strncat(buffer, " | ", BUF_SIZE - strlen(buffer) - 1);
+      sprintf(string, "%d", game->plateau[i]);
+      strncat(buffer, string, BUF_SIZE - strlen(buffer) - 1);
+   }
+   strncat(buffer, " |\n\n", BUF_SIZE - strlen(buffer) - 1);
+   free(string);
 }
 
 static void clear_clients(Client *clients, int actual)
@@ -398,6 +489,16 @@ static void remove_client(Client *clients, int to_remove, int *actual)
    memmove(clients + to_remove, clients + to_remove + 1, (*actual - to_remove - 1) * sizeof(Client));
    /* number client - 1 */
    (*actual)--;
+}
+
+static void remove_game_en_cours(Game *games_en_cours, int to_remove,
+                                 int *cur_game)
+{
+   /* we remove the client in the array */
+   memmove(games_en_cours + to_remove, games_en_cours + to_remove + 1,
+           (*cur_game - to_remove - 1) * sizeof(Game));
+   /* number client - 1 */
+   (*cur_game)--;
 }
 
 static void send_message_to_all_clients(Client *clients, Client sender, int actual, const char *buffer, char from_server)

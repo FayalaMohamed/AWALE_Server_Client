@@ -30,7 +30,7 @@ typedef struct in_addr IN_ADDR;
 #define CRLF     "\r\n"
 #define PORT     1977
 
-#define BUF_SIZE 1024
+#define BUF_SIZE 2048
 #define NB_CASES 12
 
 static void init(void);

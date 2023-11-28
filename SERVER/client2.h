@@ -7,8 +7,8 @@ struct Client
 {
    SOCKET sock;
    char name[BUF_SIZE];
-   int gameId;
-   int score;
+   uint8_t gameId;
+   uint8_t gamesWon;
    int isPlaying;
    char* pseudoAdversaire;
 } typedef Client;

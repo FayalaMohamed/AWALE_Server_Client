@@ -31,19 +31,19 @@ typedef struct in_addr IN_ADDR;
 #define PORT 1977
 #define MAX_CLIENTS 100
 
-#define BUF_SIZE 1024
+#define BUF_SIZE 2048
 
 #include "client2.h"
 
 struct Game
 {
     uint8_t gameId;
-    SOCKET socket_joueur1;
-    SOCKET socket_joueur2;
+    Client*  joueur1;
+    Client* joueur2;
     uint8_t score_joueur1;
     uint8_t score_joueur2;
     uint8_t sens_rotation;
-    uint8_t nb_tours;
+    uint8_t next_joueur;
     uint8_t *plateau;
 } typedef Game;
 
@@ -66,5 +66,5 @@ static void write_client(SOCKET sock, const char *buffer);
 static void send_message_to_all_clients(Client *clients, Client client, int actual, const char *buffer, char from_server);
 static void remove_client(Client *clients, int to_remove, int *actual);
 static void clear_clients(Client *clients, int actual);
-static void createPlateauMessage(char *buffer, Game* game);
+static void createPlateauMessage(char *buffer, Game *game, Client *joueur);
 #endif /* guard */

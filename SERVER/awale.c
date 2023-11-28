@@ -20,7 +20,7 @@
  */
 void initPartie(uint8_t **plateau, uint8_t *score_joueur1, uint8_t *score_joueur2, uint8_t *sens_rotation)
 {
-    *plateau = (uint8_t *)malloc(NB_CASES * sizeof(uint8_t));
+    //*plateau = (uint8_t *)malloc(NB_CASES * sizeof(uint8_t));
 
     // Initialize plateau
     for (int i = 0; i < NB_CASES; ++i)
@@ -262,7 +262,7 @@ bool obligerNourrir(uint8_t joueur, uint8_t *plateau, uint8_t sens_rotation, uin
  * plateau
  */
 void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t sens_rotation,
-               uint8_t *plateau)
+               uint8_t **plateau)
 {
 
     uint8_t nb_pions;
@@ -282,8 +282,8 @@ void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t 
     case_parcourue = case_depart;
 
     // déroulé du tour
-    nb_pions = plateau[case_parcourue];
-    plateau[case_parcourue] = 0;
+    nb_pions = (*plateau)[case_parcourue];
+    (*plateau)[case_parcourue] = 0;
 
     printf("case sélec : %d | nb pions = %d\n", case_parcourue, nb_pions);
 
@@ -302,16 +302,16 @@ void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t 
         }
 
         printf("case sélec : %d | nb pions = %d\n", case_parcourue,
-               plateau[case_parcourue]);
+               (*plateau)[case_parcourue]);
 
-        plateau[case_parcourue] = plateau[case_parcourue] + 1;
+        (*plateau)[case_parcourue] = (*plateau)[case_parcourue] + 1;
         nb_pions--;
     }
 
     // sauvegarde temporaire du plateau de jeu : en cas de non-validité on peut y
     // revenir faite ici parce que on a égrené les pions, et que cette opération
     // se dfait dans tous les cas
-    copiePlateau(plateau, tmpPlateau);
+    copiePlateau((*plateau), tmpPlateau);
 
     // TESTS SAUVEGARDE
     // afficherPlateau(plateau, 1);
@@ -321,11 +321,11 @@ void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t 
 
     // on vérifie si le joueur remporte des pions
     while (!estDansCampJoueur(joueur, case_parcourue) &&
-           (plateau[case_parcourue] == 2 || plateau[case_parcourue] == 3))
+           ((*plateau)[case_parcourue] == 2 || (*plateau)[case_parcourue] == 3))
     {
-        printf("Le joueur prend les pions : %d\n", plateau[case_parcourue]);
-        *score_joueur += plateau[case_parcourue];
-        plateau[case_parcourue] = 0;
+        printf("Le joueur prend les pions : %d\n", (*plateau)[case_parcourue]);
+        *score_joueur += (*plateau)[case_parcourue];
+        (*plateau)[case_parcourue] = 0;
         case_parcourue -= sens_rotation;
 
         // on vérifie que le coup n'a pas vidé le camp de l'adversaire
@@ -335,11 +335,11 @@ void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t 
               case_parcourue == NB_CASES / 2 * (2 - joueur)) ||
              (sens_rotation == 0 &&
               case_parcourue == NB_CASES / 2 * (3 - joueur) - 1)) &&
-            plateau[case_parcourue] == 0)
+            (*plateau)[case_parcourue] == 0)
         {
             printf("Au final aucune prise n'est faite  car le coup vide totalement le camp adverse\n");
             printf("Votre score actuel est : %d\n", tmp_sore_joueur);
-            copiePlateau(tmpPlateau, plateau);
+            copiePlateau(tmpPlateau, (*plateau));
 
             *score_joueur = tmp_sore_joueur;
         }

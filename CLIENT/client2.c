@@ -140,6 +140,12 @@ static void app(const char *address, const char *name)
             fgets(action, BUF_SIZE - 1, stdin);
             strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
             break;
+         case '4':
+            strncpy(buffer, "4", BUF_SIZE - 1);
+            printf("Saisissez la case où vous voulez jouer : \n");
+            fgets(action, BUF_SIZE - 1, stdin);
+            strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
+            break;
          default:
             strncpy(buffer, "MENU", BUF_SIZE - 1);
             break;
@@ -173,8 +179,6 @@ static void app(const char *address, const char *name)
          char contenu[BUF_SIZE - 1];
          char *plateau;
          strncpy(contenu, buffer + 1, BUF_SIZE - 2);
-         printf("buffer = %s\n", buffer);
-         printf("contenu = %s\n", contenu);
          switch (action)
          {
          case '3':
@@ -184,11 +188,9 @@ static void app(const char *address, const char *name)
             write_server(sock, buffer);
             break;
          case '4':
-            strncpy(plateau, contenu, NB_CASES);
-            afficherPlateau(plateau, contenu[15]%2 + 1);
-            break;
+
          default:
-            printf("%s\n", buffer);
+            puts(buffer);
             break;
          }
       }

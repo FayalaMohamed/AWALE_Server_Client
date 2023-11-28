@@ -14,6 +14,6 @@ uint8_t testFinPartie(uint8_t *plateau, uint8_t joueur, uint8_t sens_rotation, u
 
 bool obligerNourrir(uint8_t joueur, uint8_t *plateau, uint8_t sens_rotation, uint8_t *coup, uint8_t *indexCoup);
 
-void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t sens_rotation, uint8_t *plateau);
+void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t sens_rotation, uint8_t **plateau);
 
 #endif
