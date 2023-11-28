@@ -37,13 +37,14 @@ typedef struct in_addr IN_ADDR;
 
 struct Game
 {
-    int gameId;
+    uint8_t gameId;
     SOCKET socket_joueur1;
     SOCKET socket_joueur2;
-    int score_joueur1;
-    int score_joueur2;
-    int sens_rotation;
-    int *plateau;
+    uint8_t score_joueur1;
+    uint8_t score_joueur2;
+    uint8_t sens_rotation;
+    uint8_t nb_tours;
+    uint8_t *plateau;
 } typedef Game;
 
 
@@ -53,7 +54,7 @@ Client clients[MAX_CLIENTS];
 char message[BUF_SIZE];
 /* the index for the clients array */
 int actual = 0;
-int nb_games  = 0;
+uint8_t nb_games = 0;
 
 static void init(void);
 static void end(void);
@@ -65,5 +66,5 @@ static void write_client(SOCKET sock, const char *buffer);
 static void send_message_to_all_clients(Client *clients, Client client, int actual, const char *buffer, char from_server);
 static void remove_client(Client *clients, int to_remove, int *actual);
 static void clear_clients(Client *clients, int actual);
-
+static void createPlateauMessage(char *buffer, Game* game);
 #endif /* guard */

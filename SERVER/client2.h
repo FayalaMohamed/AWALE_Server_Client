@@ -10,6 +10,7 @@ struct Client
    int gameId;
    int score;
    int isPlaying;
+   char* pseudoAdversaire;
 } typedef Client;
 
 #endif /* guard */

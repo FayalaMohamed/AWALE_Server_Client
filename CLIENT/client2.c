@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "client2.h"
 
@@ -43,6 +44,35 @@ void buffLectureToBuff(char (*buffer)[BUF_SIZE], char *buffLecture, char message
       /* fclean */
       (*buffer)[BUF_SIZE - 1] = 0;
    }
+}
+
+static void afficherPlateau(uint8_t *plateau, uint8_t joueur)
+{
+
+   int idx_row1, idx_row2;
+
+   // indices des cases par lesquelles commencent les lignes à afficher
+   idx_row1 = NB_CASES / 2 * (2 - joueur);
+   idx_row2 = NB_CASES / 2 * joueur - 1;
+
+   // affichage ligne par ligne
+   printf("Point de vue du joueur %d\n", joueur);
+   printf("Plateau de jeu :\n\n");
+   for (int i = idx_row1; i < idx_row1 + 6; ++i)
+   {
+      printf(" | %d", plateau[i]);
+   }
+   printf(" |\n");
+   for (int i = 0; i < NB_CASES / 2; ++i)
+   {
+      printf("-----");
+   }
+   printf("\n");
+   for (int i = idx_row2; i > idx_row2 - 6; --i)
+   {
+      printf(" | %d", plateau[i]);
+   }
+   printf(" |\n\n");
 }
 
 static void app(const char *address, const char *name)
@@ -94,12 +124,28 @@ static void app(const char *address, const char *name)
          perror("select()");
          exit(errno);
       }
-
       /* something from standard input : i.e keyboard */
       if (FD_ISSET(STDIN_FILENO, &rdfs))
       {
-         fgets(buffer, BUF_SIZE - 1, stdin);
+         char action[BUF_SIZE];
+         fgets(action, BUF_SIZE - 1, stdin);
+         switch (action[0])
          {
+         case '1':
+            strncpy(buffer, "1", BUF_SIZE - 1);
+            break;
+         case '2':
+            strncpy(buffer, "2", BUF_SIZE - 1);
+            printf("Saisissez le pseudo du joueur à affronter : \n");
+            fgets(action, BUF_SIZE - 1, stdin);
+            strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
+            break;
+         default:
+            strncpy(buffer, "MENU", BUF_SIZE - 1);
+            break;
+         }
+         {
+
             char *p = NULL;
             p = strstr(buffer, "\n");
             if (p != NULL)
@@ -123,7 +169,28 @@ static void app(const char *address, const char *name)
             printf("Server disconnected !\n");
             break;
          }
-         puts(buffer);
+         char action = buffer[0];
+         char contenu[BUF_SIZE - 1];
+         char *plateau;
+         strncpy(contenu, buffer + 1, BUF_SIZE - 2);
+         printf("buffer = %s\n", buffer);
+         printf("contenu = %s\n", contenu);
+         switch (action)
+         {
+         case '3':
+            printf("%s\n", contenu);
+            fgets(contenu, BUF_SIZE - 2, stdin);
+            buffLectureToBuff(&buffer, contenu, '3');
+            write_server(sock, buffer);
+            break;
+         case '4':
+            strncpy(plateau, contenu, NB_CASES);
+            afficherPlateau(plateau, contenu[15]%2 + 1);
+            break;
+         default:
+            printf("%s\n", buffer);
+            break;
+         }
       }
    }
 

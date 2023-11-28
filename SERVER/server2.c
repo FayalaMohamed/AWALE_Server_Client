@@ -37,9 +37,17 @@ void InitGame(Game *game, int gameId, int socket_joueur1, int socket_joueur2)
    game->gameId = gameId;
    game->socket_joueur1 = socket_joueur1;
    game->socket_joueur2 = socket_joueur2;
+   game->nb_tours = 0;
    initPartie(&game->plateau, &game->score_joueur1, &game->score_joueur2, &game->sens_rotation);
-   //afficherPlateau(game->plateau, 1);
-   //PlayGame(&game, gameId);
+
+   char *buffer;
+   buffer = (char *)malloc(BUF_SIZE*sizeof(char));
+   buffer[0] = 0;
+   createPlateauMessage(buffer, game);
+   printf("buffer = %s\n", buffer);
+   write_client(game->socket_joueur1, buffer);
+   free(buffer);
+   // PlayGame(&game, gameId);
 }
 
 void sendMenu(Client c)
@@ -75,68 +83,69 @@ bool sendAvailablePlayers(Client c)
    }
    else
    {
-      strncat(buffer, "\nPour choisir un adversaire envoye 2<pseudo du joueur>", BUF_SIZE -(2*strlen(buffer)) -1);
+      strncat(buffer, "\nPour choisir un adversaire envoye 2", BUF_SIZE - (2 * strlen(buffer)) - 1);
    }
    write_client(c.sock, buffer);
    return foundPlayers;
 }
 
-void confirmAdversaire(Client c, Client adv)
+void confirmAdversaire(Client *c, char *reponse)
 {
-   char buffer[BUF_SIZE];
-   strncpy(buffer, "Voulez vous jouer avec ", BUF_SIZE - 1);
-   strncat(buffer, c.name, BUF_SIZE - strlen(buffer) - 1);
-   strncat(buffer, "? (Y/N) : ", BUF_SIZE - strlen(buffer) - 1);
-   write_client(adv.sock, buffer);
-   //is a select needed? and FD_ISSET?
-   int d = read_client(adv.sock, buffer);
-   char answer = buffer[0];
-   /* client disconnected */
-   if (d == 0)
+   bool adversaireTrouve = false;
+   Client *adv;
+   for (int i = 0; i < actual; i++)
    {
-      strncpy(buffer, "Le joueur choisi n'est plus disponible", BUF_SIZE - 1);
-      write_client(c.sock, buffer);
-   }
-   else{
-      switch (answer)
+      if (!strcmp(clients[i].name, c->pseudoAdversaire) && !clients[i].isPlaying && clients[i].sock)
       {
-      case 'y':
-      case 'Y':
-         strncpy(buffer, "La partie d'Awalé avec ", BUF_SIZE -1);
-         strncat(buffer, c.name, BUF_SIZE - strlen(buffer) - 1);
-         strncat(buffer, " commencera bientôt", BUF_SIZE - strlen(buffer) - 1);
-         write_client(adv.sock, buffer);
-
-         strncpy(buffer, "Le joueur ", BUF_SIZE -1);
-         strncat(buffer, adv.name, BUF_SIZE - strlen(buffer) - 1);
-         strncat(buffer, " a accepté ta demande", BUF_SIZE - strlen(buffer) - 1);
-         write_client(c.sock, buffer);
-
-         c.isPlaying = true;
-         adv.isPlaying = true;
-         InitGame(&games[nb_games], nb_games, c.sock, adv.sock);
-         break;
-      case 'n':
-      case 'N':
-         strncpy(buffer, "Tu as réfusé la demande de", BUF_SIZE -1);
-         strncat(buffer, c.name, BUF_SIZE - strlen(buffer) - 1);
-         write_client(adv.sock, buffer);
-
-         strncpy(buffer, "Le joueur", BUF_SIZE -1);
-         strncat(buffer, adv.name, BUF_SIZE - strlen(buffer) - 1);
-         strncat(buffer, " a refusé ta demande", BUF_SIZE - strlen(buffer) - 1);
-         write_client(c.sock, buffer);
-         break;
+         adversaireTrouve = true;
+         adv = &clients[i];
       }
+   }
+   if (!adversaireTrouve)
+   {
+      return;
+   }
+   char buffer[BUF_SIZE];
+   char answer = reponse[0];
+   switch (answer)
+   {
+   case 'y':
+   case 'Y':
+      strncpy(buffer, "La partie d'Awalé avec ", BUF_SIZE - 1);
+      strncat(buffer, adv->name, BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, " commencera bientôt", BUF_SIZE - strlen(buffer) - 1);
+      write_client(c->sock, buffer);
+
+      strncpy(buffer, "Le joueur ", BUF_SIZE - 1);
+      strncat(buffer, c->name, BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, " a accepté ta demande", BUF_SIZE - strlen(buffer) - 1);
+      write_client(adv->sock, buffer);
+
+      c->isPlaying = true;
+      adv->isPlaying = true;
+      InitGame(&games[nb_games], nb_games, c->sock, adv->sock);
+      nb_games++;
+      break;
+   case 'n':
+   case 'N':
+      strncpy(buffer, "Tu as réfusé la demande de ", BUF_SIZE - 1);
+      strncat(buffer, adv->name, BUF_SIZE - strlen(buffer) - 1);
+      write_client(c->sock, buffer);
+
+      strncpy(buffer, "Le joueur ", BUF_SIZE - 1);
+      strncat(buffer, c->name, BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, " a refusé ta demande", BUF_SIZE - strlen(buffer) - 1);
+      write_client(adv->sock, buffer);
+      break;
    }
 }
 
-void choixAdversaire(Client c, char *adversaire)
+Client *choixAdversaire(Client *c, char *adversaire)
 {
-   if (!strcmp(c.name, adversaire))
+   if (!strcmp(c->name, adversaire))
    {
-      write_client(c.sock, "Tu ne peux pas jouer toute seul");
-      return;
+      write_client(c->sock, "Tu ne peux pas jouer toute seul");
+      return NULL;
    }
    char buffer[BUF_SIZE];
    bool foundPlayer = false;
@@ -144,16 +153,23 @@ void choixAdversaire(Client c, char *adversaire)
    {
       if (!strcmp(clients[i].name, adversaire) && !clients[i].isPlaying && clients[i].sock)
       {
+         c->pseudoAdversaire = adversaire;
+         clients[i].pseudoAdversaire = c->name;
          foundPlayer = true;
-         write_client(c.sock, "Notification envoyée à l'adversaire ");
-
-         confirmAdversaire(c, clients[i]);
-         break;
+         write_client(c->sock, "Notification envoyée à l'adversaire ");
+         char buffer[BUF_SIZE];
+         strncpy(buffer, "3", BUF_SIZE - 1);
+         strncat(buffer, "Voulez vous jouer avec ", BUF_SIZE - strlen(buffer) - 1);
+         strncat(buffer, c->name, BUF_SIZE - strlen(buffer) - 1);
+         strncat(buffer, "? (Y/N) : ", BUF_SIZE - strlen(buffer) - 1);
+         write_client(clients[i].sock, buffer);
+         return &clients[i];
       }
    }
    if (!foundPlayer)
    {
-      write_client(c.sock, "Le joueur saisi n'existe pas ou est en train de jouer");
+      write_client(c->sock, "Le joueur saisi n'existe pas ou est en train de jouer");
+      return NULL;
    }
 }
 
@@ -238,7 +254,10 @@ void gererMessageClient(Client *c, char *message)
       sendAvailablePlayers(*c);
       break;
    case '2':
-      choixAdversaire(*c, contenu);
+      choixAdversaire(c, contenu);
+      break;
+   case '3':
+      confirmAdversaire(c, contenu);
       break;
    default:
       sendMenu(*c);
@@ -248,7 +267,7 @@ void gererMessageClient(Client *c, char *message)
 
 static void app(void)
 {
-   //InitGame(&games[0], 0, 1, 2); 
+   // InitGame(&games[0], 0, 1, 2);
    SOCKET sock = init_connection();
    char buffer[BUF_SIZE];
    int max = sock;
@@ -340,6 +359,28 @@ static void app(void)
 
    clear_clients(clients, actual);
    end_connection(sock);
+}
+
+static void createPlateauMessage(char *buffer, Game* game)
+{
+   buffer[0] = '4';
+   buffer[1] = (char)(game->gameId + '0');
+   // plateau
+   for (int i = 0; i < 12; i++)
+   {
+      buffer[i + 1] = (char)(game->plateau[i] + '0');
+      printf("Case plateau : %hhu\n", game->plateau[i]);
+   }
+   printf("gameId : %hhu\n", game->gameId);
+   printf("score_joueur1 : %hhu\n", game->score_joueur1);
+   printf("score_joueur2 : %hhu\n", game->score_joueur2);
+   printf("nb_tours : %hhu\n", game->nb_tours);
+
+   // scores
+   buffer[13] = (char)(game->score_joueur1 + '0');
+   buffer[14] = (char)(game->score_joueur2 + '0');
+   buffer[15] = (char)(game->nb_tours + '0');
+   buffer[16] = 0;
 }
 
 static void clear_clients(Client *clients, int actual)
