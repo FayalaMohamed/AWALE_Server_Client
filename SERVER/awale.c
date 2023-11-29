@@ -262,7 +262,7 @@ bool obligerNourrir(uint8_t joueur, uint8_t *plateau, uint8_t sens_rotation, uin
  * plateau
  */
 void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t sens_rotation,
-               uint8_t **plateau)
+               uint8_t **plateau, char *buffer)
 {
 
     uint8_t nb_pions;
@@ -272,7 +272,7 @@ void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t 
     // check validité case
     if (case_jeu > 6 || case_jeu < 1)
     {
-        printf("Case choisie non valide\n");
+        //strcat(buffer, "Case choisie non valide\n");
         return;
     }
 
