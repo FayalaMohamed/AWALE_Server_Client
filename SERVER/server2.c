@@ -82,10 +82,11 @@ void PlayGame(Client *joueur, uint8_t case_jeu, char *buffer)
          }
          printf("%d\n", games[i].next_joueur);
          games[i].next_joueur = games[i].next_joueur % 2 + 1;
-         createPlateauMessage(buffer, &games[i], games[i].joueur1);
+         createPlateauMessage(buffer, &games[i], games[i].joueur1,false);
          write_client(games[i].joueur1->sock, buffer);
-         createPlateauMessage(buffer, &games[i], games[i].joueur2);
+         createPlateauMessage(buffer, &games[i], games[i].joueur2,false);
          write_client(games[i].joueur2->sock, buffer);
+         notifyObservers(games[i], joueur, case_jeu);
          break;
       }
    }
@@ -96,16 +97,18 @@ void InitGame(Game *game, int gameId, Client *joueur1, Client *joueur2)
    game->gameId = gameId;
    game->joueur1 = joueur1;
    game->joueur2 = joueur2;
+   game->nb_observers = 0;
    game->next_joueur = 1 + rand() % (2);
    game->plateau = (uint8_t *)malloc(NB_CASES * sizeof(uint8_t));
    initPartie(&game->plateau, &game->score_joueur1, &game->score_joueur2, &game->sens_rotation);
    printf("game %d created between %s and %s\n", game->gameId, game->joueur1->name, game->joueur2->name);
+   notifyObservers(*game, NULL, -1);
 }
 
 void sendMenu(Client c, char *buffer)
 {
    char *string = (char *)malloc(BUF_SIZE * sizeof(char));
-   if (!c.isPlaying)
+   if (!c.isPlaying && !c.observe)
    {
       strncpy(buffer, "\nVous avez gagné ", BUF_SIZE - 1);
       sprintf(string, "%d", c.gamesWon);
@@ -113,12 +116,16 @@ void sendMenu(Client c, char *buffer)
       strncat(buffer, " parties !\n\n", BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "1.  Afficher la liste des pseudos en ligne\n", BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "2.  Choisir un adversaire \n", BUF_SIZE - strlen(buffer) - 1);
-      strncat(buffer, "6.  Déconnexion \n", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "7.  Lister les parties en cours \n", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "8.  Observer une partie \n", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "9.  Déconnexion \n", BUF_SIZE - strlen(buffer) - 1);
    }
-   else
+   else if(!c.observe)
    {
       strncpy(buffer, "4.  Choisir la case à jouer\n", BUF_SIZE - 1);
       strncat(buffer, "5.  Abandonner\n", BUF_SIZE - strlen(buffer) - 1);
+   }else{
+      strncpy(buffer, "0.  Arreter d'observer\n", BUF_SIZE - 1);
    }
    free(string);
 }
@@ -163,6 +170,69 @@ static void abandonJoueur(Client *client)
    free(buffer);
 }
 
+bool preparerListePartiesObserver(Client c, char *buffer)
+{
+   if (c.isPlaying)
+   {
+      return false;
+   }
+   bool foundGames = false;
+   for (int i = 0; i < nb_games; i++)
+   {
+      if (!foundGames)
+      {
+         strncpy(buffer, "Les parties en cours : \n", BUF_SIZE - 1);
+      }
+      foundGames = true;
+      snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "    %d. %s vs %s\n", i + 1, games[i].joueur1->name, games[i].joueur2->name);
+   }
+   if (!foundGames)
+   {
+      strncpy(buffer, "Aucune partie en cours", BUF_SIZE - 1);
+   }
+   else
+   {
+      strncat(buffer, "\nPour choisir une partie à regarder envoyez 8\n", BUF_SIZE - (2 * strlen(buffer)) - 1);
+   }
+   return foundGames;
+}
+
+void observerPartieEnCours(Client *c, char *contenu, char *buffer)
+{
+   int index = -1;
+   int conversionSuccessful = sscanf(contenu, "%d", &index);
+   if (conversionSuccessful != 1 || index >= nb_games)
+   {
+      strncpy(buffer, "Saisie invalide : il faut choisir un numéro de partie valide\n", BUF_SIZE - 1);
+      return;
+   }
+   games[index].observers[games[index].nb_observers] = c;
+   games[index].nb_observers += 1;
+   snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "Vous suivez désormais la partie entre %s et %s\n", games[index].joueur1->name, games[index].joueur2->name);
+   snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "Vous allez la suivre du point de vue de %s\n", games[index].joueur1->name);
+}
+
+void notifyObservers(Game game, Client *joueurQuiAJoue, int case_jouee)
+{
+   char buffer[BUF_SIZE];
+   buffer[0] = 0;
+   if (joueurQuiAJoue == NULL)
+   {
+      snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "La partie entre %s et %s vient de commencer\n", game.joueur1->name, game.joueur2->name);
+      snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "Vous allez la suivre du point de vue de %s\n", game.joueur1->name);
+   }
+   else
+   {
+      snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "%s et %s\n", game.joueur1->name, game.joueur2->name);
+      snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "\nLe joueur %s a choisi de jouer la case %d \n\n", joueurQuiAJoue->name, case_jouee);
+      createPlateauMessage(buffer, &game, game.joueur1,true);
+   }
+   for (int j = 0; j < game.nb_observers; j++)
+   {
+      write_client(game.observers[j]->sock, buffer);
+   }
+}
+
 bool sendAvailablePlayers(Client c, char *buffer)
 {
    if (c.isPlaying)
@@ -172,7 +242,7 @@ bool sendAvailablePlayers(Client c, char *buffer)
    bool foundPlayers = false;
    for (int i = 0; i < actual; i++)
    {
-      if (clients[i].name != NULL && strcmp(clients[i].name, c.name) && !clients[i].isPlaying && clients[i].sock)
+      if (strcmp(clients[i].name, "") && strcmp(clients[i].name, c.name) && !clients[i].isPlaying && clients[i].sock)
       {
          if (!foundPlayers)
          {
@@ -193,7 +263,7 @@ bool sendAvailablePlayers(Client c, char *buffer)
    }
    else
    {
-      strncat(buffer, "\nPour choisir un adversaire envoyez 2", BUF_SIZE - (2 * strlen(buffer)) - 1);
+      strncat(buffer, "\nPour choisir un adversaire envoyez 2\n", BUF_SIZE - (2 * strlen(buffer)) - 1);
    }
    return foundPlayers;
 }
@@ -246,10 +316,10 @@ void confirmAdversaire(Client *c, char *reponse)
       char *buff;
       buff = (char *)malloc(BUF_SIZE * sizeof(char));
       buff[0] = 0;
-      createPlateauMessage(buff, &games[nb_games], games[nb_games].joueur1);
+      createPlateauMessage(buff, &games[nb_games], games[nb_games].joueur1,false);
       write_client(games[nb_games].joueur1->sock, buff);
       buff[0] = 0;
-      createPlateauMessage(buff, &games[nb_games], games[nb_games].joueur2);
+      createPlateauMessage(buff, &games[nb_games], games[nb_games].joueur2,false);
       write_client(games[nb_games].joueur2->sock, buff);
       free(buff);
       nb_games++;
@@ -441,7 +511,37 @@ void gererMessageClient(Client *c, char *message)
       write_client(c->sock, buffer);
 
       break;
-   case '6':
+   case '7':
+      if (!c->isPlaying)
+      {
+         preparerListePartiesObserver(*c, buffer);
+         write_client(c->sock, buffer);
+      }
+      else
+      {
+         sendMenu(*c, buffer);
+         write_client(c->sock, buffer);
+      }
+      break;
+   case '8':
+      if (!c->isPlaying)
+      {
+         observerPartieEnCours(c, contenu, buffer);
+         write_client(c->sock, buffer);
+      }
+      else
+      {
+         sendMenu(*c, buffer);
+         write_client(c->sock, buffer);
+      }
+      break;
+   case '9': // déconnexion
+      if (c->isPlaying)
+      {
+         sendMenu(*c, buffer);
+         write_client(c->sock, buffer);
+         break;
+      }
       for (int i = 0; i < actual; i++)
       {
          if (strcmp(clients[i].name, c->name) == 0)
@@ -564,7 +664,7 @@ static void app(void)
    end_connection(sock);
 }
 
-static void createPlateauMessage(char *buffer, Game *game, Client *joueur)
+static void createPlateauMessage(char *buffer, Game *game, Client *joueur, bool pourObserveur)
 {
    int idx_row1, idx_row2, num_joueur;
    (joueur == game->joueur1) ? (num_joueur = 1) : (num_joueur = 2);
@@ -574,16 +674,16 @@ static void createPlateauMessage(char *buffer, Game *game, Client *joueur)
    idx_row2 = NB_CASES / 2 * num_joueur - 1;
 
    // affichage ligne par ligne
-   strncpy(buffer, "Point de vue du joueur ", BUF_SIZE - 1);
+   strncat(buffer, "Point de vue du joueur ", BUF_SIZE - strlen(buffer) - 1);
    strncat(buffer, joueur->name, BUF_SIZE - strlen(buffer) - 1);
    strncat(buffer, "\n", BUF_SIZE - strlen(buffer) - 1);
-   strncat(buffer, "Votre score = ", BUF_SIZE - strlen(buffer) - 1);
+   snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "Le score de %s = ", joueur->name);
    if (joueur == game->joueur1)
    {
       sprintf(string, "%d", game->score_joueur1);
       strncat(buffer, string, BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "\n", BUF_SIZE - strlen(buffer) - 1);
-      strncat(buffer, "Le score de votre adversaire = ", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "Le score de l'adversaire = ", BUF_SIZE - strlen(buffer) - 1);
       sprintf(string, "%d", game->score_joueur2);
       strncat(buffer, string, BUF_SIZE - strlen(buffer) - 1);
    }
@@ -592,7 +692,7 @@ static void createPlateauMessage(char *buffer, Game *game, Client *joueur)
       sprintf(string, "%d", game->score_joueur2);
       strncat(buffer, string, BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "\n", BUF_SIZE - strlen(buffer) - 1);
-      strncat(buffer, "Le score de votre adversaire = ", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "Le score de l'adversaire = ", BUF_SIZE - strlen(buffer) - 1);
       sprintf(string, "%d", game->score_joueur1);
       strncat(buffer, string, BUF_SIZE - strlen(buffer) - 1);
    }
@@ -619,11 +719,16 @@ static void createPlateauMessage(char *buffer, Game *game, Client *joueur)
       strncat(buffer, string, BUF_SIZE - strlen(buffer) - 1);
    }
    strncat(buffer, " |\n\n", BUF_SIZE - strlen(buffer) - 1);
-   if (num_joueur == game->next_joueur)
+   if (!pourObserveur)
    {
-      strncat(buffer, "4.  Choisir la case à jouer\n", BUF_SIZE - strlen(buffer) - 1);
+      if (num_joueur == game->next_joueur)
+      {
+         strncat(buffer, "4.  Choisir la case à jouer\n", BUF_SIZE - strlen(buffer) - 1);
+      }
+      strncat(buffer, "5.  Abandonner\n", BUF_SIZE - strlen(buffer) - 1);
+   }else{
+      strncat(buffer, "0.  Arreter d'observer\n", BUF_SIZE - strlen(buffer) - 1);
    }
-   strncat(buffer, "5.  Abandonner\n", BUF_SIZE - strlen(buffer) - 1);
    free(string);
 }
 

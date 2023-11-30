@@ -10,7 +10,8 @@ struct Client
    uint8_t gameId;
    uint8_t gamesWon;
    int isPlaying;
-   char* pseudoAdversaire;
+   char *pseudoAdversaire;
+   int observe;
 } typedef Client;
 
 #endif /* guard */
