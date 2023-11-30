@@ -73,7 +73,8 @@ void PlayGame(Client *joueur, uint8_t case_jeu, char *buffer)
             return;
          }
          res = jouerCoup(case_jeu, num_joueur, scoreJoueur, -1, &games[i].plateau);
-         if(res!=0){
+         if (res != 0)
+         {
             strncpy(buffer, "6", BUF_SIZE - 1);
             strncat(buffer, "Votre saisie est incorrecte : case vide ou indice pas entre 1 et 6 !\n", BUF_SIZE - strlen(buffer) - 1);
             write_client(joueur->sock, buffer);
@@ -112,6 +113,7 @@ void sendMenu(Client c, char *buffer)
       strncat(buffer, " parties !\n\n", BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "1.  Afficher la liste des pseudos en ligne\n", BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "2.  Choisir un adversaire \n", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "6.  Déconnexion \n", BUF_SIZE - strlen(buffer) - 1);
    }
    else
    {
@@ -123,11 +125,14 @@ void sendMenu(Client c, char *buffer)
 
 static void abandonJoueur(Client *client)
 {
+   char *buffer = (char *)malloc(BUF_SIZE * sizeof(char));
    client->isPlaying = false;
+   int indice = -1;
    for (int i = 0; i < nb_games; i++)
    {
       if (games[i].gameId == client->gameId)
       {
+         indice = i;
          if (client == games[i].joueur1)
          {
             games[i].joueur2->isPlaying = false;
@@ -135,6 +140,8 @@ static void abandonJoueur(Client *client)
             games[i].joueur2->gameId = -1;
             games[i].joueur2->pseudoAdversaire = NULL;
             write_client(games[i].joueur2->sock, "Votre adversaire a abandonné. Vous avez gangné la partie\n");
+            sendMenu(*(games[i].joueur2), buffer);
+            write_client(games[i].joueur2->sock, buffer);
          }
          else if (client == games[i].joueur2)
          {
@@ -143,10 +150,17 @@ static void abandonJoueur(Client *client)
             games[i].joueur1->gameId = -1;
             games[i].joueur1->pseudoAdversaire = NULL;
             write_client(games[i].joueur1->sock, "Votre adversaire a abandonné. Vous avez gangné la partie\n");
+            sendMenu(*(games[i].joueur1), buffer);
+            write_client(games[i].joueur1->sock, buffer);
          }
          break;
       }
    }
+   if (indice != -1)
+   {
+      remove_game_en_cours(games, indice, &nb_games);
+   }
+   free(buffer);
 }
 
 bool sendAvailablePlayers(Client c, char *buffer)
@@ -352,8 +366,9 @@ void gererMessageClient(Client *c, char *message)
    strncpy(contenu, message + 1, BUF_SIZE - 2);
    bool res;
    char *buffer = (char *)malloc(BUF_SIZE * sizeof(char));
-   //char *buffer2 = (char *)malloc(BUF_SIZE * sizeof(char));
+   // char *buffer2 = (char *)malloc(BUF_SIZE * sizeof(char));
    buffer[0] = 0;
+   int index = -1;
    switch (action)
    {
    case '0':
@@ -422,11 +437,25 @@ void gererMessageClient(Client *c, char *message)
          abandonJoueur(c);
          write_client(c->sock, "Vous avez quitté la partie !\n");
       }
-      else
+      sendMenu(*c, buffer);
+      write_client(c->sock, buffer);
+
+      break;
+   case '6':
+      for (int i = 0; i < actual; i++)
       {
-         sendMenu(*c, buffer);
-         write_client(c->sock, buffer);
+         if (strcmp(clients[i].name, c->name) == 0)
+         {
+            index = i;
+            break;
+         }
       }
+      abandonJoueur(c);
+      closesocket(c->sock);
+      remove_client(clients, index, &actual);
+      strncpy(buffer, c->name, BUF_SIZE - 1);
+      strncat(buffer, " disconnected !", BUF_SIZE - strlen(buffer) - 1);
+      send_message_to_all_clients(clients, *c, actual, buffer, 1);
       break;
    default:
       sendMenu(*c, buffer);
@@ -625,8 +654,9 @@ remove_client(Client *clients, int to_remove, int *actual)
 }
 
 static void remove_game_en_cours(Game *games_en_cours, int to_remove,
-                                 int *cur_game)
+                                 uint8_t *cur_game)
 {
+   free(games[to_remove].plateau);
    /* we remove the client in the array */
    memmove(games_en_cours + to_remove, games_en_cours + to_remove + 1,
            (*cur_game - to_remove - 1) * sizeof(Game));

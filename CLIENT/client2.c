@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "client2.h"
+#include <stdbool.h>
 
 static void init(void)
 {
@@ -80,6 +81,7 @@ static void app(const char *address, const char *name)
    SOCKET sock = init_connection(address);
    char buffer[BUF_SIZE];
    char buffLecture[BUF_SIZE - 1];
+   bool deconnected = false;
 
    fd_set rdfs;
 
@@ -111,7 +113,7 @@ static void app(const char *address, const char *name)
       }
    }
 
-   while (1)
+   while (!deconnected)
    {
       FD_ZERO(&rdfs);
 
@@ -182,6 +184,27 @@ static void app(const char *address, const char *name)
             }
             if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0){
                strncpy(buffer, "5", BUF_SIZE - 1);
+            }
+            break;
+         case '6':
+            printf("Etes vous sur de vouloir vous déconnecter ? (Y/N)\n");
+            fgets(action, BUF_SIZE - 1, stdin);
+            {
+               char *p = NULL;
+               p = strstr(action, "\n");
+               if (p != NULL)
+               {
+                  *p = 0;
+               }
+               else
+               {
+                  /* fclean */
+                  action[BUF_SIZE - 1] = 0;
+               }
+            }
+            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0){
+               strncpy(buffer, "6", BUF_SIZE - 1);
+               deconnected = true;
             }
             break;
          default:
