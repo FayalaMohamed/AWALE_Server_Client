@@ -101,6 +101,8 @@ static void app(const char *address, const char *name)
       if (buffer[0] == '0' && buffer[1] == '1')
       {
          printf("Pseudo validé\n");
+         strncpy(buffer, "MENU", BUF_SIZE - 1);
+         write_server(sock, buffer);
          break;
       }
       else if (buffer[0] == '0' && buffer[1] == '0')
@@ -129,6 +131,7 @@ static void app(const char *address, const char *name)
       {
          char action[BUF_SIZE];
          fgets(action, BUF_SIZE - 1, stdin);
+   
          switch (action[0])
          {
          case '1':
@@ -143,8 +146,43 @@ static void app(const char *address, const char *name)
          case '4':
             strncpy(buffer, "4", BUF_SIZE - 1);
             printf("Saisissez la case où vous voulez jouer : \n");
-            fgets(action, BUF_SIZE - 1, stdin);
+            while (1)
+            {
+               fgets(action, BUF_SIZE - 1, stdin);
+               int choice;
+               int conversionSuccessful = sscanf(action, "%d", &choice);
+
+               // Check if the input is a valid integer and within the desired range
+               if (conversionSuccessful != 1 || choice < 1 || choice > 6)
+               {
+                  printf("Saisie invalide : il faut choisir un chiffre entre 1 et 6 !\n");
+               }
+               else
+               {
+                  break;
+               }
+            }
             strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
+            break;
+         case '5':
+            printf("Etes vous sur de vouloir abandonner ? (Y/N)\n");
+            fgets(action, BUF_SIZE - 1, stdin);
+            {
+               char *p = NULL;
+               p = strstr(action, "\n");
+               if (p != NULL)
+               {
+                  *p = 0;
+               }
+               else
+               {
+                  /* fclean */
+                  action[BUF_SIZE - 1] = 0;
+               }
+            }
+            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0){
+               strncpy(buffer, "5", BUF_SIZE - 1);
+            }
             break;
          default:
             strncpy(buffer, "MENU", BUF_SIZE - 1);
@@ -187,8 +225,28 @@ static void app(const char *address, const char *name)
             buffLectureToBuff(&buffer, contenu, '3');
             write_server(sock, buffer);
             break;
-         case '4':
+         case '6':
+            printf("%s\n", contenu);
+            printf("Saisissez la case où vous voulez jouer : \n");
+            while (1)
+            {
+               fgets(contenu, BUF_SIZE - 2, stdin);
+               int choice;
+               int conversionSuccessful = sscanf(contenu, "%d", &choice);
 
+               // Check if the input is a valid integer and within the desired range
+               if (conversionSuccessful != 1 || choice < 1 || choice > 6)
+               {
+                  printf("Saisie invalide : il faut choisir un chiffre entre 1 et 6 !\n");
+               }
+               else
+               {
+                  break;
+               }
+            }
+            buffLectureToBuff(&buffer, contenu, '4');
+            write_server(sock, buffer);
+            break;
          default:
             puts(buffer);
             break;

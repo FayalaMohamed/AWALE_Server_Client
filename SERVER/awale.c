@@ -261,19 +261,23 @@ bool obligerNourrir(uint8_t joueur, uint8_t *plateau, uint8_t sens_rotation, uin
  * n°6 = celle tout à droite) pas selon les indices du tableauq ui représente le
  * plateau
  */
-void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t sens_rotation,
-               uint8_t **plateau)
+uint8_t jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, int sens_rotation,
+                  uint8_t **plateau)
 {
 
     uint8_t nb_pions;
-    uint8_t case_parcourue, case_depart;
+    int case_parcourue, case_depart;
     uint8_t tmpPlateau[NB_CASES];
 
     // check validité case
     if (case_jeu > 6 || case_jeu < 1)
     {
         printf("Case choisie non valide\n");
-        return;
+        return 1;
+    }
+    else if ((*plateau)[(NB_CASES / 2 * joueur) - case_jeu] == 0)
+    {
+        return 2;
     }
 
     // conversion case en fonction du joueur : cf formule dans afficherPlateau
@@ -292,7 +296,7 @@ void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t 
     // sont pas prises
     while (nb_pions > 0)
     {
-        uint8_t temp = ((case_parcourue + sens_rotation) % NB_CASES);
+        uint8_t temp = ((case_parcourue + sens_rotation + NB_CASES) % NB_CASES);
         case_parcourue = temp >= 0 ? temp : NB_CASES + temp;
 
         // si plus de 11 graines : on saute la case de départ
@@ -344,6 +348,7 @@ void jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, uint8_t 
             *score_joueur = tmp_sore_joueur;
         }
     }
+    return 0;
 }
 
 //     int *plateau;
