@@ -215,18 +215,20 @@ void confirmAdversaire(Client *c, char *reponse)
    case 'Y':
       strncpy(buffer, "La partie d'Awalé avec ", BUF_SIZE - 1);
       strncat(buffer, adv->name, BUF_SIZE - strlen(buffer) - 1);
-      strncat(buffer, " commencera bientôt", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, " commencera bientôt.\n", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "Mettre 4 pour jouer un coup.\n", BUF_SIZE - strlen(buffer) -strlen(buffer) - 1);
       write_client(c->sock, buffer);
 
       strncpy(buffer, "Le joueur ", BUF_SIZE - 1);
       strncat(buffer, c->name, BUF_SIZE - strlen(buffer) - 1);
-      strncat(buffer, " a accepté ta demande", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, " a accepté ta demande.\n", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "Mettre 4 pour jouer un coup.\n", BUF_SIZE - strlen(buffer) -strlen(buffer) - 1);
       write_client(adv->sock, buffer);
 
       c->isPlaying = true;
+      c->gameId = nb_games;
       adv->isPlaying = true;
       adv->gameId = nb_games;
-      c->gameId = nb_games;
       InitGame(&games[nb_games], nb_games, c, adv);
 
       char *buff;
@@ -352,6 +354,7 @@ void gererMessageClient(Client *c, char *message)
    strncpy(contenu, message + 1, BUF_SIZE - 2);
    bool res;
    char *buffer = (char *)malloc(BUF_SIZE * sizeof(char));
+   //char *buffer2 = (char *)malloc(BUF_SIZE * sizeof(char));
    buffer[0] = 0;
    switch (action)
    {
