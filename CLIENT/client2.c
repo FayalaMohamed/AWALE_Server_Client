@@ -133,9 +133,30 @@ static void app(const char *address, const char *name)
       {
          char action[BUF_SIZE];
          fgets(action, BUF_SIZE - 1, stdin);
-   
+
          switch (action[0])
          {
+         case '0':
+            printf("Etes vous sur de vouloir ne plus suivre la partie ? ? (Y/N)\n");
+            fgets(action, BUF_SIZE - 1, stdin);
+            {
+               char *p = NULL;
+               p = strstr(action, "\n");
+               if (p != NULL)
+               {
+                  *p = 0;
+               }
+               else
+               {
+                  /* fclean */
+                  action[BUF_SIZE - 1] = 0;
+               }
+            }
+            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0)
+            {
+               strncpy(buffer, "0", BUF_SIZE - 1);
+            }
+            break;
          case '1': // lister les joueurs en ligne
             strncpy(buffer, "1", BUF_SIZE - 1);
             break;
@@ -182,7 +203,8 @@ static void app(const char *address, const char *name)
                   action[BUF_SIZE - 1] = 0;
                }
             }
-            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0){
+            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0)
+            {
                strncpy(buffer, "5", BUF_SIZE - 1);
             }
             break;
@@ -210,7 +232,7 @@ static void app(const char *address, const char *name)
             }
             strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
             break;
-         case '9': //deconnexion
+         case '9': // deconnexion
             printf("Etes vous sur de vouloir vous déconnecter ? (Y/N)\n");
             fgets(action, BUF_SIZE - 1, stdin);
             {
@@ -226,7 +248,8 @@ static void app(const char *address, const char *name)
                   action[BUF_SIZE - 1] = 0;
                }
             }
-            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0){
+            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0)
+            {
                strncpy(buffer, "9", BUF_SIZE - 1);
                deconnected = true;
             }
