@@ -133,19 +133,40 @@ static void app(const char *address, const char *name)
       {
          char action[BUF_SIZE];
          fgets(action, BUF_SIZE - 1, stdin);
-   
+
          switch (action[0])
          {
-         case '1':
+         case '0':
+            printf("Etes vous sur de vouloir ne plus suivre la partie ? ? (Y/N)\n");
+            fgets(action, BUF_SIZE - 1, stdin);
+            {
+               char *p = NULL;
+               p = strstr(action, "\n");
+               if (p != NULL)
+               {
+                  *p = 0;
+               }
+               else
+               {
+                  /* fclean */
+                  action[BUF_SIZE - 1] = 0;
+               }
+            }
+            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0)
+            {
+               strncpy(buffer, "0", BUF_SIZE - 1);
+            }
+            break;
+         case '1': // lister les joueurs en ligne
             strncpy(buffer, "1", BUF_SIZE - 1);
             break;
-         case '2':
+         case '2': // envoyer une demande de jeu
             strncpy(buffer, "2", BUF_SIZE - 1);
             printf("Saisissez le pseudo du joueur à affronter : \n");
             fgets(action, BUF_SIZE - 1, stdin);
             strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
             break;
-         case '4':
+         case '4': // jouer un coup
             strncpy(buffer, "4", BUF_SIZE - 1);
             printf("Saisissez la case où vous voulez jouer : \n");
             while (1)
@@ -166,7 +187,7 @@ static void app(const char *address, const char *name)
             }
             strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
             break;
-         case '5':
+         case '5': // abandonner
             printf("Etes vous sur de vouloir abandonner ? (Y/N)\n");
             fgets(action, BUF_SIZE - 1, stdin);
             {
@@ -182,11 +203,36 @@ static void app(const char *address, const char *name)
                   action[BUF_SIZE - 1] = 0;
                }
             }
-            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0){
+            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0)
+            {
                strncpy(buffer, "5", BUF_SIZE - 1);
             }
             break;
-         case '6':
+         case '7': // lister les parties en cours
+            strncpy(buffer, "7", BUF_SIZE - 1);
+            break;
+         case '8': // observer une partie en cours
+            strncpy(buffer, "8", BUF_SIZE - 1);
+            printf("Saisissez le numéro de la partie que vous voulez suivre : \n");
+            while (1)
+            {
+               fgets(action, BUF_SIZE - 1, stdin);
+               int choice;
+               int conversionSuccessful = sscanf(action, "%d", &choice);
+
+               // Check if the input is a valid integer and within the desired range
+               if (conversionSuccessful != 1)
+               {
+                  printf("Saisie invalide : il faut choisir le numéro de la partie\n");
+               }
+               else
+               {
+                  break;
+               }
+            }
+            strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
+            break;
+         case '9': // deconnexion
             printf("Etes vous sur de vouloir vous déconnecter ? (Y/N)\n");
             fgets(action, BUF_SIZE - 1, stdin);
             {
@@ -202,8 +248,9 @@ static void app(const char *address, const char *name)
                   action[BUF_SIZE - 1] = 0;
                }
             }
-            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0){
-               strncpy(buffer, "6", BUF_SIZE - 1);
+            if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0)
+            {
+               strncpy(buffer, "9", BUF_SIZE - 1);
                deconnected = true;
             }
             break;
@@ -242,13 +289,13 @@ static void app(const char *address, const char *name)
          strncpy(contenu, buffer + 1, BUF_SIZE - 2);
          switch (action)
          {
-         case '3':
+         case '3': // client recoit une demande de jeu
             printf("%s\n", contenu);
             fgets(contenu, BUF_SIZE - 2, stdin);
             buffLectureToBuff(&buffer, contenu, '3');
             write_server(sock, buffer);
             break;
-         case '6':
+         case '6': // case choisie vide ou invalide
             printf("%s\n", contenu);
             printf("Saisissez la case où vous voulez jouer : \n");
             while (1)
