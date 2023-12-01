@@ -133,7 +133,7 @@ static void app(const char *address, const char *name)
       {
          char action[BUF_SIZE];
          fgets(action, BUF_SIZE - 1, stdin);
-
+         int res = 0;
          switch (action[0])
          {
          case '0':
@@ -206,6 +206,34 @@ static void app(const char *address, const char *name)
             if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0)
             {
                strncpy(buffer, "5", BUF_SIZE - 1);
+            }
+            break;     
+         case '6':
+            printf("Ecrivez la bio et mettez exit a la fin (max. 10 lignes)\n ");
+            strncpy(buffer, "6", BUF_SIZE - 1);
+            while (1) {  // Infinite loop until a specific condition is met
+               fgets(action, sizeof(action), stdin);
+               // Remove newline character at the end of action
+               char *p = strchr(action, '\n');
+               if (p != NULL) {
+                  *p = '\0';
+               }
+               if (strcmp(action, "exit") == 0) {
+                  if (strlen(buffer) > 0) // remove the last , in the buffer
+                  {
+                     buffer[strlen(buffer) - 1] = '\0';
+                  }
+                  break;  // Exit the loop if "exit" is entered
+               }
+               printf("action: %s \n", action);
+               strncat(buffer, action, BUF_SIZE - strlen(buffer)-1);
+               strncat(buffer, "~ ", BUF_SIZE - strlen(buffer)-1);
+               printf("buffer part: %s\n", buffer);
+               // Check if buffer is full
+               if (strlen(buffer) >= BUF_SIZE-1) { 
+                  printf("Buffer for the bio is full.\n");
+                  break;
+               }
             }
             break;
          case '7': // lister les parties en cours
