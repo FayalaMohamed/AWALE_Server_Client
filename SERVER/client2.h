@@ -11,6 +11,7 @@ struct Client
    uint8_t gamesWon;
    int isPlaying;
    char* pseudoAdversaire;
+   char bio[BUF_SIZE];
 } typedef Client;
 
 #endif /* guard */

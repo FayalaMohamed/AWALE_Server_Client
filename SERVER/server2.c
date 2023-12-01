@@ -113,7 +113,8 @@ void sendMenu(Client c, char *buffer)
       strncat(buffer, " parties !\n\n", BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "1.  Afficher la liste des pseudos en ligne\n", BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "2.  Choisir un adversaire \n", BUF_SIZE - strlen(buffer) - 1);
-      strncat(buffer, "6.  Déconnexion \n", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "6.  Ecrire une bio \n", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, "9.  Déconnexion \n", BUF_SIZE - strlen(buffer) - 1);
    }
    else
    {
@@ -162,6 +163,7 @@ static void abandonJoueur(Client *client)
    }
    free(buffer);
 }
+
 
 bool sendAvailablePlayers(Client c, char *buffer)
 {
@@ -441,7 +443,7 @@ void gererMessageClient(Client *c, char *message)
       write_client(c->sock, buffer);
 
       break;
-   case '6':
+   case '9':
       for (int i = 0; i < actual; i++)
       {
          if (strcmp(clients[i].name, c->name) == 0)
@@ -457,6 +459,9 @@ void gererMessageClient(Client *c, char *message)
       strncat(buffer, " disconnected !", BUF_SIZE - strlen(buffer) - 1);
       send_message_to_all_clients(clients, *c, actual, buffer, 1);
       break;
+   case '6':
+      strcpy(c->bio, contenu);
+      write_client(c->sock, "Tu as cree une bio\n");
    default:
       sendMenu(*c, buffer);
       write_client(c->sock, buffer);
