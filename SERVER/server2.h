@@ -34,6 +34,7 @@ typedef struct in_addr IN_ADDR;
 #define BUF_SIZE 2048
 
 #include "client2.h"
+#include <stdbool.h>
 
 struct Game
 {
@@ -45,9 +46,9 @@ struct Game
     uint8_t sens_rotation;
     uint8_t next_joueur;
     uint8_t *plateau;
+    Client *observers[MAX_CLIENTS];
+    int nb_observers;
 } typedef Game;
-
-
 
 Game games[MAX_CLIENTS];
 Client clients[MAX_CLIENTS];
@@ -56,6 +57,7 @@ char message[BUF_SIZE];
 int actual = 0;
 uint8_t nb_games = 0;
 
+void notifyObservers(Game game, Client *joueurQuiAJoue, int case_jouee);
 static void init(void);
 static void end(void);
 static void app(void);
@@ -69,5 +71,5 @@ static void clear_games();
 static void remove_client(Client *clients, int to_remove, int *actual);
 static void remove_game_en_cours(Game *games_en_cours, int to_remove,
                                  uint8_t *cur_game);
-static void createPlateauMessage(char *buffer, Game *game, Client *joueur);
+static void createPlateauMessage(char *buffer, Game *game, Client *joueur, bool pourObserveur);
 #endif /* guard */

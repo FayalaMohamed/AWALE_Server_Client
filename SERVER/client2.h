@@ -2,16 +2,18 @@
 #define CLIENT_H
 
 #include "server2.h"
+#include <stdbool.h>
 
 struct Client
 {
    SOCKET sock;
-   char name[BUF_SIZE];
+   char name[100];
    uint8_t gameId;
    uint8_t gamesWon;
    int isPlaying;
    char* pseudoAdversaire;
    char bio[BUF_SIZE];
+   bool observe;
 } typedef Client;
 
 #endif /* guard */
