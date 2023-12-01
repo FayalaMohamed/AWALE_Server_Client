@@ -213,6 +213,7 @@ void observerPartieEnCours(Client *c, char *contenu, char *buffer)
 {
    int index = -1;
    int conversionSuccessful = sscanf(contenu, "%d", &index);
+   index--;
    if (conversionSuccessful != 1 || index >= nb_games)
    {
       strncpy(buffer, "Saisie invalide : il faut choisir un numéro de partie valide\n", BUF_SIZE - 1);
@@ -287,7 +288,7 @@ bool sendAvailablePlayers(Client c, char *buffer)
    bool foundPlayers = false;
    for (int i = 0; i < actual; i++)
    {
-      if (strcmp(clients[i].name, "") && strcmp(clients[i].name, c.name) && !clients[i].isPlaying && clients[i].sock)
+      if (strcmp(clients[i].name, "") && strcmp(clients[i].name, c.name) && !clients[i].isPlaying && !clients[i].observe && clients[i].sock)
       {
          if (!foundPlayers)
          {
@@ -325,7 +326,7 @@ void confirmAdversaire(Client *c, char *reponse)
    Client *adv = NULL;
    for (int i = 0; i < actual; i++)
    {
-      if (!strcmp(clients[i].name, c->pseudoAdversaire) && !clients[i].isPlaying && clients[i].sock)
+      if (!strcmp(clients[i].name, c->pseudoAdversaire) && !clients[i].isPlaying && !clients[i].observe && clients[i].sock)
       {
          adversaireTrouve = true;
          adv = &clients[i];
