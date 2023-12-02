@@ -185,9 +185,6 @@ uint8_t nbCasesDansLeCamp(uint8_t case_selec, uint8_t joueur, uint8_t *plateau,
 uint8_t testFinPartie(uint8_t *plateau, uint8_t joueur, uint8_t sens_rotation,
                       uint8_t score_joueur1, uint8_t score_joueur2)
 {
-
-    uint8_t stopJeu; // pour les tests qui ont besoin de condition sur les 2 joueurs
-
     // vérification du score des joueurs
     if (score_joueur1 >= 25)
     {

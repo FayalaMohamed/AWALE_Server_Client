@@ -215,7 +215,7 @@ void observerPartieEnCours(Client *c, char *contenu, char *buffer)
    int index = -1;
    int conversionSuccessful = sscanf(contenu, "%d", &index);
    index--;
-   if (conversionSuccessful != 1 || index >= nb_games)
+   if (conversionSuccessful != 1 || index >= nb_games || index<0)
    {
       strncpy(buffer, "Saisie invalide : il faut choisir un numéro de partie valide\n", BUF_SIZE - 1);
       return;
@@ -397,14 +397,12 @@ Client *choixAdversaire(Client *c, char *adversaire)
    }
    char buffer[BUF_SIZE];
    buffer[0] = 0;
-   bool foundPlayer = false;
    for (int i = 0; i < actual; i++)
    {
       if (!strcmp(clients[i].name, adversaire) && !clients[i].isPlaying && clients[i].sock)
       {
          c->pseudoAdversaire = adversaire;
          clients[i].pseudoAdversaire = c->name;
-         foundPlayer = true;
          write_client(c->sock, "Notification envoyée à l'adversaire ");
 
          strncpy(buffer, "3", BUF_SIZE - 1);
@@ -415,11 +413,8 @@ Client *choixAdversaire(Client *c, char *adversaire)
          return &clients[i];
       }
    }
-   if (!foundPlayer)
-   {
-      write_client(c->sock, "Le joueur saisi n'existe pas ou est en train de jouer");
-      return NULL;
-   }
+   write_client(c->sock, "Le joueur saisi n'existe pas ou est en train de jouer");
+   return NULL;
 }
 
 bool validerPseudo(char *pseudo)
@@ -569,6 +564,7 @@ void gererMessageClient(Client *c, char *message)
    case '6':
       strcpy(c->bio, contenu);
       write_client(c->sock, "Tu as cree une bio\n");
+      break;
    case '7':
       if (!c->isPlaying)
       {
@@ -822,7 +818,7 @@ remove_client(Client *clients, int to_remove, int *actual)
 static void remove_game_en_cours(Game *games_en_cours, int to_remove,
                                  uint8_t *cur_game)
 {
-   char *buffer = (uint8_t *)malloc(BUF_SIZE * sizeof(uint8_t));
+   char *buffer = (char *)malloc(BUF_SIZE * sizeof(char));
    buffer[0] = 0;
    for (int i = 0; i < games[to_remove].nb_observers; i++)
    {

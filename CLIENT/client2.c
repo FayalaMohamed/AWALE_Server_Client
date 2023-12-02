@@ -47,36 +47,8 @@ void buffLectureToBuff(char (*buffer)[BUF_SIZE], char *buffLecture, char message
    }
 }
 
-static void afficherPlateau(uint8_t *plateau, uint8_t joueur)
-{
 
-   int idx_row1, idx_row2;
-
-   // indices des cases par lesquelles commencent les lignes à afficher
-   idx_row1 = NB_CASES / 2 * (2 - joueur);
-   idx_row2 = NB_CASES / 2 * joueur - 1;
-
-   // affichage ligne par ligne
-   printf("Point de vue du joueur %d\n", joueur);
-   printf("Plateau de jeu :\n\n");
-   for (int i = idx_row1; i < idx_row1 + 6; ++i)
-   {
-      printf(" | %d", plateau[i]);
-   }
-   printf(" |\n");
-   for (int i = 0; i < NB_CASES / 2; ++i)
-   {
-      printf("-----");
-   }
-   printf("\n");
-   for (int i = idx_row2; i > idx_row2 - 6; --i)
-   {
-      printf(" | %d", plateau[i]);
-   }
-   printf(" |\n\n");
-}
-
-static void app(const char *address, const char *name)
+static void app(const char *address)
 {
    SOCKET sock = init_connection(address);
    char buffer[BUF_SIZE];
@@ -103,6 +75,7 @@ static void app(const char *address, const char *name)
       if (buffer[0] == '0' && buffer[1] == '1')
       {
          printf("Pseudo validé\n");
+         printf("Vous pouvez toujours demander le menu des actions possibles en tapant 'MENU' ou 'menu'\n");
          strncpy(buffer, "MENU", BUF_SIZE - 1);
          write_server(sock, buffer);
          break;
@@ -133,7 +106,6 @@ static void app(const char *address, const char *name)
       {
          char action[BUF_SIZE];
          fgets(action, BUF_SIZE - 1, stdin);
-         int res = 0;
          switch (action[0])
          {
          case '0':
@@ -225,10 +197,8 @@ static void app(const char *address, const char *name)
                   }
                   break;  // Exit the loop if "exit" is entered
                }
-               printf("action: %s \n", action);
                strncat(buffer, action, BUF_SIZE - strlen(buffer)-1);
                strncat(buffer, "~ ", BUF_SIZE - strlen(buffer)-1);
-               printf("buffer part: %s\n", buffer);
                // Check if buffer is full
                if (strlen(buffer) >= BUF_SIZE-1) { 
                   printf("Buffer for the bio is full.\n");
@@ -313,7 +283,6 @@ static void app(const char *address, const char *name)
          }
          char action = buffer[0];
          char contenu[BUF_SIZE - 1];
-         char *plateau;
          strncpy(contenu, buffer + 1, BUF_SIZE - 2);
          switch (action)
          {
@@ -420,13 +389,13 @@ int main(int argc, char **argv)
 {
    if (argc < 2)
    {
-      printf("Usage : %s [address] [pseudo]\n", argv[0]);
+      printf("Usage : %s [address]\n", argv[0]);
       return EXIT_FAILURE;
    }
 
    init();
 
-   app(argv[1], argv[2]);
+   app(argv[1]);
 
    end();
 

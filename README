@@ -1,0 +1,33 @@
+# AWALE 
+## By : Mohamed FAYALA & Danja BAUER
+## Description
+
+This project contains multiple folders, each representing a different component of the application. To build and run the application, follow the instructions below.
+
+## Prerequisites
+
+- Make sure you have [Make](https://www.gnu.org/software/make/) installed on your system.
+
+## Build Instructions
+
+1. Open a terminal or command prompt.
+2. Navigate to the root directory of the project.
+
+### Building Executable Files
+
+To build the executable files for each component, execute the following command:
+`make all` : it will create an executable file `server` in the server directory and a `client` in the client directory
+
+### Deleting executable 
+
+To delete the executable files run : 
+`make clean`
+
+## Running Executables 
+
+To execute the server, navigate to the server directory and run : 
+`./server`
+
+To execute the client, navigate to the client directory and run : 
+`./client [ServerIpAddress]` (127.0.0.1 as an ip address if your server in run on the same machine)
+
