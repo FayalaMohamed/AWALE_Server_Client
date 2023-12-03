@@ -185,27 +185,6 @@ static void app(const char *address)
             strncpy(buffer, "6", BUF_SIZE - 1);
             fgets(action, sizeof(action), stdin);
             strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
-            /* while (1) {  // Infinite loop until a specific condition is met
-               // Remove newline character at the end of action
-               char *p = strchr(action, '\n');
-               if (p != NULL) {
-                  *p = '\0';
-               }
-               if (strcmp(action, "exit") == 0) {
-                  if (strlen(buffer) > 0) // remove the last , in the buffer
-                  {
-                     buffer[strlen(buffer) - 1] = '\0';
-                  }
-                  break;  // Exit the loop if "exit" is entered
-               }
-               strncat(buffer, action, BUF_SIZE - strlen(buffer)-1);
-               strncat(buffer, "~ ", BUF_SIZE - strlen(buffer)-1);
-               // Check if buffer is full
-               if (strlen(buffer) >= BUF_SIZE-1) { 
-                  printf("Buffer for the bio is full.\n");
-                  break;
-               }
-            } */
             break;
          case '7': // lister les parties en cours
             strncpy(buffer, "7", BUF_SIZE - 1);
