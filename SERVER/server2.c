@@ -290,15 +290,11 @@ bool sendAvailablePlayers(Client c, char *buffer)
       {
          if (!foundPlayers)
          {
-            strncpy(buffer, "Les joueurs disponibles : ", BUF_SIZE - 1);
-         }
-         else
-         {
-            strncat(buffer, ", ", BUF_SIZE - strlen(buffer) - 1);
+            strncpy(buffer, "Les joueurs disponibles : \n", BUF_SIZE - 1);
          }
          foundPlayers = true;
+         snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "    - %s : %s\n", clients[i].name, strcmp(clients[i].bio,"")!=0 ? clients[i].bio : "(pas de bio)");
 
-         strncat(buffer, clients[i].name, BUF_SIZE - strlen(buffer) - 1);
       }
    }
    if (!foundPlayers)
@@ -673,6 +669,7 @@ static void app(void)
          c.observe = false;
          c.gamesWon = 0;
          c.gameId = 0;
+         c.bio[0] = 0;
          clients[actual] = c;
          actual++;
       }
