@@ -29,7 +29,6 @@ static void end(void)
 
 void PlayGame(Client *joueur, uint8_t case_jeu, char *buffer)
 {
-   printf("le joueur %s qui joue la partie %d a choisi la case %d\n", joueur->name, joueur->gameId, case_jeu);
    for (int i = 0; i < nb_games; i++)
    {
       if (joueur->gameId == games[i].gameId)
@@ -82,7 +81,6 @@ void PlayGame(Client *joueur, uint8_t case_jeu, char *buffer)
             write_client(joueur->sock, buffer);
             return;
          }
-         printf("%d\n", games[i].next_joueur);
          games[i].next_joueur = games[i].next_joueur % 2 + 1;
          createPlateauMessage(buffer, &games[i], games[i].joueur1, false);
          write_client(games[i].joueur1->sock, buffer);
@@ -103,7 +101,6 @@ void InitGame(Game *game, int gameId, Client *joueur1, Client *joueur2)
    game->next_joueur = 1 + rand() % (2);
    game->plateau = (uint8_t *)malloc(NB_CASES * sizeof(uint8_t));
    initPartie(&game->plateau, &game->score_joueur1, &game->score_joueur2, &game->sens_rotation);
-   printf("game %d created between %s and %s\n", game->gameId, game->joueur1->name, game->joueur2->name);
    notifyObservers(*game, NULL, -1);
 }
 
@@ -470,8 +467,6 @@ void buffLectureToBuff(char (*buffer)[BUF_SIZE], char *buffLecture, char message
 
 void gererMessageClient(Client *c, char *message)
 {
-   printf("%s a parlé\n", c->name);
-
    // On récupère le premier caractère du message pour déterminer l'action à effectuer
    char action = message[0];
    char contenu[BUF_SIZE - 2];
@@ -492,7 +487,6 @@ void gererMessageClient(Client *c, char *message)
       else
       {
          res = validerPseudo(contenu);
-         printf("res = %d\n", res);
          if (res)
          {
             contenu[BUF_SIZE - 2] = '\0';
@@ -542,7 +536,6 @@ void gererMessageClient(Client *c, char *message)
    case '4':
       if (c->isPlaying)
       {
-         printf("%d\n", (uint8_t)(contenu[0] - '0'));
          PlayGame(c, (uint8_t)(contenu[0] - '0'), buffer);
       }
       else
@@ -705,7 +698,6 @@ static void app(void)
                }
                else
                {
-                  printf("buffer = %s\n", buffer);
                   gererMessageClient(&clients[i], buffer);
                }
                break;
