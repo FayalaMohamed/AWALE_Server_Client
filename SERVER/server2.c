@@ -27,6 +27,11 @@ static void end(void)
 #endif
 }
 
+/*
+Controles that the game is played right
+i.e. checks whose turn it is, if the players game move is allowed and who has won
+and updates the observer and the players when a move has been made
+*/
 void PlayGame(Client *joueur, uint8_t case_jeu, char *buffer)
 {
    for (int i = 0; i < nb_games; i++)
@@ -36,62 +41,85 @@ void PlayGame(Client *joueur, uint8_t case_jeu, char *buffer)
          int num_joueur;
          uint8_t *scoreJoueur;
          uint8_t res;
+         //checks who wants to make a move (player 1 or 2)
          if (joueur == games[i].joueur1)
          {
             num_joueur = 1;
             scoreJoueur = &games[i].score_joueur1;
+            //tests if the games is already over
             res = testFinPartie(games[i].plateau, num_joueur, -1, *scoreJoueur, games[i].score_joueur2);
          }
          else
          {
             num_joueur = 2;
             scoreJoueur = &games[i].score_joueur2;
+            //tests if the games is already over
             res = testFinPartie(games[i].plateau, num_joueur, -1, games[i].score_joueur1, *scoreJoueur);
          }
          if (res == 1)
          {
+            //If the game is over and player one has won, both players are notified
             write_client(games[i].joueur1->sock, "Tu as gagné!\n");
             write_client(games[i].joueur2->sock, "Tu as perdu!\n");
+            //The players stop playing and can start a new game
             games[i].joueur1->isPlaying = false;
             games[i].joueur2->isPlaying = false;
+            //the score of gamesWon of the player no. 1 is augmented
             games[i].joueur1->gamesWon += 1;
+            //Notify observers of outcome and end of the game
             notifyObservers(games[i], games[i].joueur1, -1);
             return;
          }
          else if (res == 2)
          {
+            //If the game is over and player one has won, both players are notified
             write_client(games[i].joueur1->sock, "Tu as perdu!\n");
             write_client(games[i].joueur2->sock, "Tu as gagné!\n");
+            //The players stop playing and can start a new game
             games[i].joueur1->isPlaying = false;
             games[i].joueur2->isPlaying = false;
+            //the score of gamesWon of the player no. 2 is augmented
             games[i].joueur2->gamesWon += 1;
+            //Notify observers of outcome and end of the game
             notifyObservers(games[i], games[i].joueur2, -1);
             return;
          }
          if (num_joueur != games[i].next_joueur)
          {
+            //Notifies player if it's not his turn
             write_client(joueur->sock, "C'est pas ton tour\n");
             return;
          }
+         //return value of jourCoup informs us about possible complications that were encoutered during the game move
          res = jouerCoup(case_jeu, num_joueur, scoreJoueur, -1, &games[i].plateau);
+         //there were complications while carrying out the game move
          if (res != 0)
          {
+            //asks player to make a different move
             strncpy(buffer, "6", BUF_SIZE - 1);
             strncat(buffer, "Votre saisie est incorrecte : case vide ou indice pas entre 1 et 6 !\n", BUF_SIZE - strlen(buffer) - 1);
             write_client(joueur->sock, buffer);
             return;
          }
+         //alternates between 1,2 to indicate which player can make a move
          games[i].next_joueur = games[i].next_joueur % 2 + 1;
+         //creates the visuals for the plateau of player 1
          createPlateauMessage(buffer, &games[i], games[i].joueur1, false);
          write_client(games[i].joueur1->sock, buffer);
+
+         //creates the visuals for the plateau of player 1
          createPlateauMessage(buffer, &games[i], games[i].joueur2, false);
          write_client(games[i].joueur2->sock, buffer);
+
+         //updates observes of the game move
          notifyObservers(games[i], joueur, case_jeu);
          break;
       }
    }
 }
 
+//initializes a new game
+//calls function initPartie from awale.c
 void InitGame(Game *game, int gameId, Client *joueur1, Client *joueur2)
 {
    game->gameId = gameId;
@@ -104,15 +132,19 @@ void InitGame(Game *game, int gameId, Client *joueur1, Client *joueur2)
    notifyObservers(*game, NULL, -1);
 }
 
+//Sends a list of the operations a user can ask for 
 void sendMenu(Client c, char *buffer)
 {
    char *string = (char *)malloc(BUF_SIZE * sizeof(char));
    if (!c.isPlaying && !c.observe)
    {
+      //Informs the player of the number of games he/she has won
       strncpy(buffer, "\nVous avez gagné ", BUF_SIZE - 1);
       sprintf(string, "%d", c.gamesWon);
       strncat(buffer, string, BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, " parties !\n\n", BUF_SIZE - strlen(buffer) - 1);
+
+      //shows which options the user has
       strncat(buffer, "1.  Afficher la liste des pseudos en ligne\n", BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "2.  Choisir un adversaire \n", BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, "6.  Ecrire une bio \n", BUF_SIZE - strlen(buffer) - 1);
@@ -122,16 +154,21 @@ void sendMenu(Client c, char *buffer)
    }
    else if (!c.observe)
    {
+      //shows the users options during a game (specifically also whose turn it is)
       strncpy(buffer, "4.  Choisir la case à jouer\n", BUF_SIZE - 1);
       strncat(buffer, "5.  Abandonner\n", BUF_SIZE - strlen(buffer) - 1);
    }
    else
    {
+      //special options for observer
       strncpy(buffer, "0.  Arreter d'observer\n", BUF_SIZE - 1);
    }
    free(string);
 }
 
+//Is called when a player quits the game
+//deletes the games and declares the other player as winner
+//resets the clients attributes used for controling th game flow (i.e. opponent, current game)
 static void abandonJoueur(Client *client)
 {
    char *buffer = (char *)malloc(BUF_SIZE * sizeof(char));
@@ -142,6 +179,7 @@ static void abandonJoueur(Client *client)
       if (games[i].gameId == client->gameId)
       {
          indice = i;
+         //Resets the opponent
          if (client == games[i].joueur1)
          {
             games[i].joueur2->isPlaying = false;
@@ -151,11 +189,14 @@ static void abandonJoueur(Client *client)
             write_client(games[i].joueur2->sock, "Votre adversaire a abandonné. Vous avez gangné la partie\n");
             sendMenu(*(games[i].joueur2), buffer);
             write_client(games[i].joueur2->sock, buffer);
+
+            //Notify observer
             for (int j = 0; j < games[i].nb_observers; j++)
             {
                notifyObservers(games[i], games[i].joueur2, -1);
             }
          }
+         //resets the attributes of the player who left the game
          else if (client == games[i].joueur2)
          {
             games[i].joueur1->isPlaying = false;
@@ -173,6 +214,7 @@ static void abandonJoueur(Client *client)
          break;
       }
    }
+   //error handling
    if (indice != -1)
    {
       remove_game_en_cours(games, indice, &nb_games);
@@ -180,6 +222,7 @@ static void abandonJoueur(Client *client)
    free(buffer);
 }
 
+//Overview of current games which are stored in the games array
 bool preparerListePartiesObserver(Client c, char *buffer)
 {
    if (c.isPlaying)
@@ -194,6 +237,7 @@ bool preparerListePartiesObserver(Client c, char *buffer)
          strncpy(buffer, "Les parties en cours : \n", BUF_SIZE - 1);
       }
       foundGames = true;
+      //Prints players names
       snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "    %d. %s vs %s\n", i + 1, games[i].joueur1->name, games[i].joueur2->name);
    }
    if (!foundGames)
@@ -277,37 +321,105 @@ void arreterObserver(Client *c, char *buffer)
    }
 }
 
-bool sendAvailablePlayers(Client c, char *buffer)
+//Reformates bio i.e. reintroduces newlines 
+char *processBio(char *contenu)
 {
+   char *bio = malloc(BUF_SIZE); 
+
+   //prevents invalid pointer error
+   strncpy(bio, contenu, strlen(contenu));
+   char *tildePos = strstr(bio, "~");
+
+   // Process each occurrence of tilde in the string
+   while (tildePos != NULL) 
+   {
+      *tildePos = '\n';
+      tildePos = strchr(tildePos, '~');
+   }
+   return bio;
+}
+
+/*
+Either sends a list of the currents clients or send the bio of a specific client
+This depends on whether the pseudo if the player is send by the client
+*/
+bool sendAvailablePlayers(Client c, char *buffer, char *player)
+{ 
    if (c.isPlaying)
    {
       return false;
    }
    bool foundPlayers = false;
-   for (int i = 0; i < actual; i++)
+   //Test if client send name of a player i.e. if he/ she wants a bio or just the overview
+   if (player[0] == '\0')
    {
-      if (strcmp(clients[i].name, "") && strcmp(clients[i].name, c.name) && !clients[i].isPlaying && !clients[i].observe && clients[i].sock)
+      for (int i = 0; i < actual; i++)
       {
-         if (!foundPlayers)
+         //searches for active players
+         if (strcmp(clients[i].name, "") && strcmp(clients[i].name, c.name) && !clients[i].isPlaying && !clients[i].observe && clients[i].sock)
          {
-            strncpy(buffer, "Les joueurs disponibles : \n", BUF_SIZE - 1);
+            if (!foundPlayers) // lists all available clienst
+            {
+               strncpy(buffer, "Les joueurs disponibles : ", BUF_SIZE - 1);
+            }
+            else
+            {
+               strncat(buffer, ", ", BUF_SIZE - strlen(buffer) - 1);
+            }
+            foundPlayers = true;
+            strncat(buffer, clients[i].name, BUF_SIZE - strlen(buffer) - 1);
          }
-         foundPlayers = true;
-         snprintf(buffer + strlen(buffer), BUF_SIZE - strlen(buffer), "    - %s : %s\n", clients[i].name, strcmp(clients[i].bio,"")!=0 ? clients[i].bio : "(pas de bio)");
-
+      }
+      if (!foundPlayers) //sends message of there are no other clients online
+      {
+         strncpy(buffer, "Aucun joueur disponible en ce moment", BUF_SIZE - 1);
+      }
+      else
+      {
+         //Tells the client about his further options if there are other clients
+         //they can choose an opponent
+         strncat(buffer, "\nPour choisir un adversaire envoyez 2\n", BUF_SIZE - (strlen(buffer)) - 1);
+         //they can request a bio
+         strncat(buffer, "Pour voir la bio d'un joueur mettez 1<pseudo du joueur>", BUF_SIZE - (strlen(buffer)) - 1);
       }
    }
-   if (!foundPlayers)
-   {
-      strncpy(buffer, "Aucun joueur disponible en ce moment", BUF_SIZE - 1);
-   }
-   else
-   {
-      strncat(buffer, "\nPour choisir un adversaire envoyez 2\n", BUF_SIZE - (2 * strlen(buffer)) - 1);
-   }
+   else{ //sending the bio 
+      char *temp;
+      int cmp;
+      for (int i = 0; i < actual; i++)
+      {
+         //finds the player whose bio was requested
+         if (strcmp(clients[i].name, player) == 0)
+         {
+            foundPlayers = true;
+            //checks if the player has a bio
+            if (clients[i].bio[0] != '\0')
+            {
+               //gets the bio in the right format and sends it to the client
+               temp = processBio(clients[i].bio);
+               temp[BUF_SIZE-1] = '\0';
+               strncpy(buffer, temp , BUF_SIZE - 1);
+               free(temp);
+            }
+            else{
+               strncpy(buffer, "Ce joueur n'a pas une bio.\n", BUF_SIZE - strlen(buffer));
+            }
+         }
+      }
+      if (!foundPlayers)
+      {
+         strncpy(buffer, "Ce joueur n'existe pas\n", BUF_SIZE - (2 * strlen(buffer)) - 1);
+      }
    return foundPlayers;
+   }
 }
 
+/*
+Handles communication after a game request was send
+i.e. checks if the player might already play another game,
+if the requested player still exists and
+if he/she even wants to play this game
+*/
 void confirmAdversaire(Client *c, char *reponse)
 {
    if (c->isPlaying)
@@ -320,18 +432,21 @@ void confirmAdversaire(Client *c, char *reponse)
    Client *adv = NULL;
    for (int i = 0; i < actual; i++)
    {
+      //Checks if player has disconnected or started another game
       if (!strcmp(clients[i].name, c->pseudoAdversaire) && !clients[i].isPlaying && !clients[i].observe && clients[i].sock)
       {
          adversaireTrouve = true;
          adv = &clients[i];
       }
    }
+   
    if (!adversaireTrouve)
    {
       strncpy(buffer, "L'adversaire s'est déconnecté ou a commencé une autre partie !", BUF_SIZE - 1);
       write_client(c->sock, buffer);
       return;
    }
+   //Evaluates the clients response to the game request
    char answer = reponse[0];
    switch (answer)
    {
@@ -339,7 +454,7 @@ void confirmAdversaire(Client *c, char *reponse)
    case 'Y':
       strncpy(buffer, "La partie d'Awalé avec ", BUF_SIZE - 1);
       strncat(buffer, adv->name, BUF_SIZE - strlen(buffer) - 1);
-      strncat(buffer, " commencera bientôt.\n", BUF_SIZE - strlen(buffer) - 1);
+      strncat(buffer, " commence.\n", BUF_SIZE - strlen(buffer) - 1);
       write_client(c->sock, buffer);
 
       strncpy(buffer, "Le joueur ", BUF_SIZE - 1);
@@ -347,12 +462,14 @@ void confirmAdversaire(Client *c, char *reponse)
       strncat(buffer, " a accepté ta demande.\n", BUF_SIZE - strlen(buffer) - 1);
       write_client(adv->sock, buffer);
 
+      //prepares the game play
       c->isPlaying = true;
       c->gameId = nb_games;
       adv->isPlaying = true;
       adv->gameId = nb_games;
       InitGame(&games[nb_games], nb_games, c, adv);
 
+      //visualizes the initial situation if the game
       char *buff;
       buff = (char *)malloc(BUF_SIZE * sizeof(char));
       buff[0] = 0;
@@ -364,11 +481,14 @@ void confirmAdversaire(Client *c, char *reponse)
       free(buff);
       nb_games++;
       break;
+
+      //if the player does not confirm his/her wish to play the game
    default:
       strncpy(buffer, "Tu as réfusé la demande de ", BUF_SIZE - 1);
       strncat(buffer, adv->name, BUF_SIZE - strlen(buffer) - 1);
       write_client(c->sock, buffer);
 
+      //Informs the client who send the request
       strncpy(buffer, "Le joueur ", BUF_SIZE - 1);
       strncat(buffer, c->name, BUF_SIZE - strlen(buffer) - 1);
       strncat(buffer, " a refusé ta demande", BUF_SIZE - strlen(buffer) - 1);
@@ -377,6 +497,7 @@ void confirmAdversaire(Client *c, char *reponse)
    }
 }
 
+//Finds the opponent a client wants to play against and sends him/her a message
 Client *choixAdversaire(Client *c, char *adversaire)
 {
    if (c->isPlaying)
@@ -410,12 +531,15 @@ Client *choixAdversaire(Client *c, char *adversaire)
    return NULL;
 }
 
+//Checks if pseudo has the right format
 bool validerPseudo(char *pseudo)
 {
+   //first character cannot be a digit because that's what we use for conrtoling the flow of the program
    if (pseudo[0] >= '0' && pseudo[0] <= '9')
    {
       return false;
    }
+
    for (int i = 0; i < actual; i++)
    {
       if (strcmp(clients[i].name, pseudo) == 0)
@@ -461,6 +585,9 @@ void buffLectureToBuff(char (*buffer)[BUF_SIZE], char *buffLecture, char message
    }
 }
 
+/*
+The main method wher we handle the program flow by using digits from 0 to 9
+*/
 void gererMessageClient(Client *c, char *message)
 {
    // On récupère le premier caractère du message pour déterminer l'action à effectuer
@@ -469,12 +596,11 @@ void gererMessageClient(Client *c, char *message)
    strncpy(contenu, message + 1, BUF_SIZE - 2);
    bool res;
    char *buffer = (char *)malloc(BUF_SIZE * sizeof(char));
-   // char *buffer2 = (char *)malloc(BUF_SIZE * sizeof(char));
    buffer[0] = 0;
    int index = -1;
    switch (action)
    {
-   case '0':
+   case '0': // stop observing or validate the chosen pseudo
       if (c->observe)
       {
          arreterObserver(c, buffer);
@@ -487,18 +613,20 @@ void gererMessageClient(Client *c, char *message)
          {
             contenu[BUF_SIZE - 2] = '\0';
             strncpy(c->name, contenu, BUF_SIZE - 2);
+            //control message
             write_client(c->sock, "01");
          }
          else
          {
+            //control message
             write_client(c->sock, "00");
          }
       }
       break;
-   case '1':
+   case '1': // sends all available players or the menu
       if (!c->isPlaying)
       {
-         sendAvailablePlayers(*c, buffer);
+         sendAvailablePlayers(*c, buffer, contenu);
          write_client(c->sock, buffer);
       }
       else
@@ -507,7 +635,7 @@ void gererMessageClient(Client *c, char *message)
          write_client(c->sock, buffer);
       }
       break;
-   case '2':
+   case '2': //allows player to chose an opponent or sends the overview of actions
       if (!c->isPlaying)
       {
          choixAdversaire(c, contenu);
@@ -518,7 +646,7 @@ void gererMessageClient(Client *c, char *message)
          write_client(c->sock, buffer);
       }
       break;
-   case '3':
+   case '3': //checks if a game can be started i.e. if both parties want to play
       if (!c->isPlaying)
       {
          confirmAdversaire(c, contenu);
@@ -529,7 +657,7 @@ void gererMessageClient(Client *c, char *message)
          write_client(c->sock, buffer);
       }
       break;
-   case '4':
+   case '4': //is used to make moves during the game
       if (c->isPlaying)
       {
          PlayGame(c, (uint8_t)(contenu[0] - '0'), buffer);
@@ -540,7 +668,7 @@ void gererMessageClient(Client *c, char *message)
          write_client(c->sock, buffer);
       }
       break;
-   case '5':
+   case '5': //exit from a game
       if (c->isPlaying)
       {
          abandonJoueur(c);
@@ -550,11 +678,11 @@ void gererMessageClient(Client *c, char *message)
       write_client(c->sock, buffer);
 
       break;
-   case '6':
+   case '6': // client wants to write a bio
       strcpy(c->bio, contenu);
       write_client(c->sock, "Tu as cree une bio\n");
       break;
-   case '7':
+   case '7': //looks for current games
       if (!c->isPlaying)
       {
          preparerListePartiesObserver(*c, buffer);
@@ -566,7 +694,7 @@ void gererMessageClient(Client *c, char *message)
          write_client(c->sock, buffer);
       }
       break;
-   case '8':
+   case '8': //lists current games
       if (!c->isPlaying)
       {
          observerPartieEnCours(c, contenu, buffer);
@@ -664,6 +792,7 @@ static void app(void)
 
          FD_SET(csock, &rdfs);
 
+         //init of client struct
          Client c = {csock};
          c.isPlaying = false;
          c.observe = false;
@@ -795,8 +924,7 @@ static void clear_games()
    }
 }
 
-static void
-remove_client(Client *clients, int to_remove, int *actual)
+static void remove_client(Client *clients, int to_remove, int *actual)
 {
    /* we remove the client in the array */
    memmove(clients + to_remove, clients + to_remove + 1, (*actual - to_remove - 1) * sizeof(Client));

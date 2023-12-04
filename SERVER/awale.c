@@ -278,7 +278,6 @@ uint8_t jouerCoup(uint8_t case_jeu, uint8_t joueur, uint8_t *score_joueur, int s
     }
 
     // conversion case en fonction du joueur : cf formule dans afficherPlateau
-    // (adaptée ici)
     case_depart = (NB_CASES / 2 * joueur) - case_jeu;
     case_parcourue = case_depart;
 

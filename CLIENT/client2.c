@@ -57,6 +57,12 @@ static void app(const char *address)
 
    fd_set rdfs;
 
+   /*
+   Demands from th client to first create a pseudo
+   Waits for input and checks it
+   Demands a new pseudo until the format is correct
+   Then aks the server to send the menu 
+   */
    printf("Saisissez votre pseudo (1er caractère ne doit pas être un chiffre) : \n");
    while (1)
    {
@@ -108,7 +114,7 @@ static void app(const char *address)
          fgets(action, BUF_SIZE - 1, stdin);
          switch (action[0])
          {
-         case '0':
+         case '0': //Checks if the player really wnats to leave the game, then sends 0 to the server
             printf("Etes vous sur de vouloir ne plus suivre la partie ? ? (Y/N)\n");
             fgets(action, BUF_SIZE - 1, stdin);
             {
@@ -129,28 +135,29 @@ static void app(const char *address)
                strncpy(buffer, "0", BUF_SIZE - 1);
             }
             break;
-         case '1': // lister les joueurs en ligne
-            strncpy(buffer, "1", BUF_SIZE - 1);
-            break;
-         case '2': // envoyer une demande de jeu
+         case '1': // lists all players that are online or one of their bios
+            strncpy(buffer, action, BUF_SIZE-  1);
+           break;
+         case '2': // envoyer une demande de jeu by demanding the pseudo of said player
             strncpy(buffer, "2", BUF_SIZE - 1);
             printf("Saisissez le pseudo du joueur à affronter : \n");
             fgets(action, BUF_SIZE - 1, stdin);
             strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
             break;
-         case '4': // jouer un coup
+         case '4': // jouer un coup, only sends the valid inout to the server
             strncpy(buffer, "4", BUF_SIZE - 1);
             printf("Saisissez la case où vous voulez jouer : \n");
             while (1)
             {
                fgets(action, BUF_SIZE - 1, stdin);
                int choice;
+               //converts the input to an integer
                int conversionSuccessful = sscanf(action, "%d", &choice);
 
-               // Check if the input is a valid integer and within the desired range
+               // Check if the input is a valid integer and within the players' cases
                if (conversionSuccessful != 1 || choice < 1 || choice > 6)
                {
-                  printf("Saisie invalide : il faut choisir un chiffre entre 1 et 6 !\n");
+                  printf("Saisie invalide : Il faut choisir un chiffre entre 1 et 6 !\n");
                }
                else
                {
@@ -163,6 +170,7 @@ static void app(const char *address)
             printf("Etes vous sur de vouloir abandonner ? (Y/N)\n");
             fgets(action, BUF_SIZE - 1, stdin);
             {
+               //filters out the newline character to facilitade the string comparison
                char *p = NULL;
                p = strstr(action, "\n");
                if (p != NULL)
@@ -171,20 +179,52 @@ static void app(const char *address)
                }
                else
                {
-                  /* fclean */
+                  // like fclean 
                   action[BUF_SIZE - 1] = 0;
                }
-            }
+            }// Si confirmation, faire en sorte l'abandon 
             if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0)
             {
+               //starts treatment of "action 5" on the server
                strncpy(buffer, "5", BUF_SIZE - 1);
             }
             break;     
-         case '6':
-            printf("Ecrivez la bio : \n ");
+         case '6': // ecrire une bio pour soi
+            //Adds each line from the stdin to the buffer while removing the newline character and replacing it with a tilde 
+            //(otherwise only the first line of inout would be send to the server)
+            //Meanwhile it checks if the user already wrote 10 lines or if he/she is finished
+            //User can type in exit if they are done with their bio
+            printf("Ecrivez la bio et mettez quand vous avez fini (max. 10 lignes)\n ");
             strncpy(buffer, "6", BUF_SIZE - 1);
-            fgets(action, sizeof(action), stdin);
-            strncat(buffer, action, BUF_SIZE - strlen(buffer) - 1);
+            while (1)
+            {  
+               fgets(action, sizeof(action), stdin);
+               // Remove newline character at the end of action
+               char *p = NULL;
+               p = strstr(action, "\n");
+               if (p != NULL) 
+               {
+                  *p = '\0';
+               }
+               char *exitPos = strstr(action, "exit");
+               if(exitPos != NULL || res == 10)
+               {
+                  break;
+               }
+               strncat(buffer, action, BUF_SIZE - strlen(buffer)-1);
+               strncat(buffer, "~", BUF_SIZE - strlen(buffer)-1);
+               res ++;
+               // Check if buffer is full
+               if (strlen(buffer) >= BUF_SIZE-1) 
+               { 
+                  printf("Buffer for the bio is full.\n");
+                  break;
+               }
+            }
+            if (res == 0) //if the player does not write anything, there is no need to send a message to the server
+            {
+               strncpy(buffer, "", BUF_SIZE - 1);
+            }
             break;
          case '7': // lister les parties en cours
             strncpy(buffer, "7", BUF_SIZE - 1);
@@ -196,15 +236,17 @@ static void app(const char *address)
             {
                fgets(action, BUF_SIZE - 1, stdin);
                int choice;
+               //checks the input format and saves it into choice
                int conversionSuccessful = sscanf(action, "%d", &choice);
 
-               // Check if the input is a valid integer and within the desired range
+               // Check if the input is a valid integer
                if (conversionSuccessful != 1)
                {
                   printf("Saisie invalide : il faut choisir le numéro de la partie\n");
                }
                else
                {
+                  //if the input has the right format we don't need new input from the user
                   break;
                }
             }
@@ -212,6 +254,7 @@ static void app(const char *address)
             break;
          case '9': // deconnexion
             printf("Etes vous sur de vouloir vous déconnecter ? (Y/N)\n");
+            //filters out newline character for better string comparison
             fgets(action, BUF_SIZE - 1, stdin);
             {
                char *p = NULL;
@@ -226,18 +269,21 @@ static void app(const char *address)
                   action[BUF_SIZE - 1] = 0;
                }
             }
+            //checks if the player confirmed the wish to deconnect
             if (strcmp(action, "y") == 0 || strcmp(action, "Y") == 0)
             {
+               //triggers action 9 on the server
                strncpy(buffer, "9", BUF_SIZE - 1);
                deconnected = true;
             }
             break;
          default:
+            //if the input does not correspond to any use case, we send the menu to show the client their possible choices
             strncpy(buffer, "MENU", BUF_SIZE - 1);
             break;
          }
          {
-
+            //filters out the newline character and send everything up to it to the server 
             char *p = NULL;
             p = strstr(buffer, "\n");
             if (p != NULL)
@@ -261,9 +307,13 @@ static void app(const char *address)
             printf("Server disconnected !\n");
             break;
          }
+         //Handles the demandes from the server which are triggered by specicif numbers
+         //The number is always in the first position of the buffer
          char action = buffer[0];
+         //the remainder of the buffer usually contains additional information or is empty
          char contenu[BUF_SIZE - 1];
          strncpy(contenu, buffer + 1, BUF_SIZE - 2);
+         //distinguishes the different demands
          switch (action)
          {
          case '3': // client recoit une demande de jeu
@@ -272,7 +322,7 @@ static void app(const char *address)
             buffLectureToBuff(&buffer, contenu, '3');
             write_server(sock, buffer);
             break;
-         case '6': // case choisie vide ou invalide
+         case '6': // checks if case choisie est vide ou invalide
             printf("%s\n", contenu);
             printf("Saisissez la case où vous voulez jouer : \n");
             while (1)
@@ -281,7 +331,8 @@ static void app(const char *address)
                int choice;
                int conversionSuccessful = sscanf(contenu, "%d", &choice);
 
-               // Check if the input is a valid integer and within the desired range
+               // Check if the input is a valid integer and within the players' cases
+               //otherwise a new input is demanded
                if (conversionSuccessful != 1 || choice < 1 || choice > 6)
                {
                   printf("Saisie invalide : il faut choisir un chiffre entre 1 et 6 !\n");
@@ -293,7 +344,7 @@ static void app(const char *address)
             }
             buffLectureToBuff(&buffer, contenu, '4');
             write_server(sock, buffer);
-            break;
+            break; 
          default:
             puts(buffer);
             break;
